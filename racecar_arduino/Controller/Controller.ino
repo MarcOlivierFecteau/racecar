@@ -339,7 +339,7 @@ void ctl(int dt_low){
   // Propulsion Controllers
   
   //////////////////////////////////////////////////////
-  if (ctl_mode == 0 ){
+  if(ctl_mode == 0) {
     // Zero output
     dri_pwm    = pwm_zer_dri ;
     
@@ -347,9 +347,7 @@ void ctl(int dt_low){
     vel_error_int = 0;
     pos_error_int = 0 ;
     
-  }
-  //////////////////////////////////////////////////////
-  else if (ctl_mode == 1 ){
+  } else if(ctl_mode == 1) {
     // Fully Open-Loop
     // Commands received in [Volts] directly
     dri_cmd    = dri_ref;
@@ -358,9 +356,7 @@ void ctl(int dt_low){
     // reset integral actions
     vel_error_int = 0;
     pos_error_int = 0 ;
-  }
-  //////////////////////////////////////////////////////
-  else if (ctl_mode == 2 ){
+  } else if(ctl_mode == 2) {
     // Low-level Velocity control
     // Commands received in [m/sec] setpoints
     
@@ -372,7 +368,7 @@ void ctl(int dt_low){
     vel_error_int = 0; // TODO
     dri_cmd       = vel_kp * vel_error; // proportionnal only
     
-    dri_pwm    = cmd2pwm( dri_cmd ) ;
+    dri_pwm = cmd2pwm(dri_cmd);
 
   }
   ///////////////////////////////////////////////////////
@@ -396,9 +392,7 @@ void ctl(int dt_low){
     dri_cmd = 0; // TODO
     
     dri_pwm = cmd2pwm( dri_cmd ) ;
-  }
-  ///////////////////////////////////////////////////////
-  else if (ctl_mode == 4){
+  } else if(ctl_mode == 4) {
     // Reset encoder counts
     
     clearEncoderCount();
@@ -408,9 +402,7 @@ void ctl(int dt_low){
     pos_error_int = 0 ;
     
     dri_pwm    = pwm_zer_dri ;
-  }
-  ////////////////////////////////////////////////////////
-  else {
+  } else {
     // reset integral actions
     vel_error_int = 0 ;
     pos_error_int = 0 ;
@@ -451,34 +443,30 @@ void setup()
   set_pwm(0);
 
   // Initialize 
-  #ifdef IMU
-    int stat = imu.begin();
-    imu.setAccelRange(MPU9250::ACCEL_RANGE_2G);
-    imu.setGyroRange(MPU9250::GYRO_RANGE_250DPS);
-    imu.setDlpfBandwidth(MPU9250::DLPF_BANDWIDTH_41HZ);
-    imu.setSrd(9); //100 Hz update rate
-  #endif
+  // #ifdef IMU
+  //   int stat = imu.begin();
+  //   imu.setAccelRange(MPU9250::ACCEL_RANGE_2G);
+  //   imu.setGyroRange(MPU9250::GYRO_RANGE_250DPS);
+  //   imu.setDlpfBandwidth(MPU9250::DLPF_BANDWIDTH_41HZ);
+  //   imu.setSrd(9); //100 Hz update rate
+  // #endif
   //
   delay(3000) ;
   steeringServo.write(pwm_zer_ser) ;
   
 }
 
-void loop()
-{
-
+void loop() {
   time_now = millis();
 
   /////////////////////////////////////////////////////////////
   // Watchdog: stop the car if no recent communication from ROS
   //////////////////////////////////////////////////////////////
 
-  if (( time_now - time_last_com ) > time_period_com ) {
-    
+  if((time_now - time_last_com) > time_period_com) {
     // All-stop
-    dri_ref  = 0;  // velocity set-point
-    ctl_mode = 2;  // closed-loop velocity mode
-    
+    dri_ref = 0;  // velocity set-point
+    ctl_mode = 2; // closed-loop velocity mode
   }
 
 
