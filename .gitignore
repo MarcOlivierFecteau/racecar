@@ -5,6 +5,7 @@
 *.egg
 *.pyc
 __pycache__/
+.venv/
 
 # Output fig or video, etc #
 ############################
