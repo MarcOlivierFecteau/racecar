@@ -24,8 +24,6 @@ def generate_launch_description():
                         "record", 
                         "--output", 
                         f"/home/racecar/ros2_ws/bag_files/{bag_name}", 
-                        "--max-bag-duration", 
-                        "30", 
                         "--storage", 
                         "sqlite3", 
                         "--topics", 
