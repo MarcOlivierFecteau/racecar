@@ -22,6 +22,35 @@
 MPU9250 imu(Wire, 0x68);
 #endif
 
+/***** (Custom) moving average for PID control loop *****/
+
+const uint8_t MOVING_AVERAGE_SIZE = 20;
+
+typedef struct MovingAverage {
+  uint8_t cursor = 0;
+  float arr[MOVING_AVERAGE_SIZE] = {0};
+  float total = 0.0;
+}MovingAverage;
+
+MovingAverage moving_average;
+
+void mavg_init(MovingAverage* mavg) {
+  for(size_t i = 0; i < MOVING_AVERAGE_SIZE; ++i) {
+    mavg->arr[i] = 0.0f;
+  }
+}
+
+void mavg_add(MovingAverage* mavg, float value) {
+  mavg->total -= mavg->arr[mavg->cursor];
+  mavg->arr[mavg->cursor++] = value;
+  mavg->total += value;
+  mavg->cursor = (mavg->cursor == MOVING_AVERAGE_SIZE ? 0 : mavg->cursor); // Circular buffer
+}
+
+float mavg_get_avg(MovingAverage* mavg) {
+  return mavg->total / (float)MOVING_AVERAGE_SIZE;
+}
+
 ///////////////////////////////////////////////////////////////////
 // Init I/O
 ///////////////////////////////////////////////////////////////////
@@ -53,13 +82,13 @@ long time_micros_last = 0;
 
 // TODO: VOUS DEVEZ DETERMINEZ DES BONS PARAMETRES SUIVANTS
 const float filter_rc = 0.1;
-const float vel_kp = 10.0;
-const float vel_ki = 0.0;
+const float vel_kp = 9.0;
+const float vel_ki = 24.0;
 const float vel_kd = 0.0;
-const float pos_kp = 1.0;
-const float pos_kd = 0.0;
+const float pos_kp = 7.0;
+const float pos_kd = 1.3;
 const float pos_ki = 0.0;
-const float pos_ei_sat = 10000.0;
+const float pos_ei_sat = 100.0;
 
 // Loop period
 const unsigned long time_period_low = 2;    // 500 Hz for internal PID loop
@@ -105,9 +134,17 @@ signed long enc_old = 0;
 float pos_now = 0;
 float vel_now = 0;
 float vel_old = 0;
+unsigned long vel_time_new = 0;
+unsigned long vel_time_old = 0;
+float vel_time = 0;
+unsigned long pos_time_new = 0;
+unsigned long pos_time_old = 0;
+float pos_time = 0;
 
 float vel_error_int = 0;
 float pos_error_int = 0;
+float vel_error_d = 0;
+float pos_error_d = 0;
 
 // Loop timing
 unsigned long time_now = 0;
@@ -145,6 +182,8 @@ void initEncoder()
   SPI.transfer(0x88);                 // Write to MDR0
   SPI.transfer(0x03);                 // Configure to 4 byte mode
   digitalWrite(slaveSelectEnc, HIGH); // Terminate SPI conversation
+
+  mavg_init(&moving_average);
 }
 
 //////////////////////////////////////
@@ -342,11 +381,16 @@ void ctl(int dt_low)
   pos_now = (float)enc_now * tick2m;
 
   // Velocity computation
+  vel_time_new = millis();
+  vel_time = vel_time_new - vel_time_old;
 
   // TODO: VOUS DEVEZ COMPLETEZ LA DERIVEE FILTRE ICI
-  float vel_raw = (enc_now - enc_old) * tick2m / dt_low * 1000;
-  float alpha = 0;         // TODO
-  float vel_fil = vel_raw; // Filter TODO
+  // float vel_raw = (enc_now - enc_old) * tick2m / dt_low * 1000;
+  float vel_raw = (enc_now - enc_old) * tick2m / vel_time * 1000;
+  // float alpha = 0;         // TODO
+  mavg_add(&moving_average, vel_raw);
+  float vel_fil = mavg_get_avg(&moving_average); // Filter TODO
+  vel_time_old = vel_time_new;
 
   // Propulsion Controllers
 
