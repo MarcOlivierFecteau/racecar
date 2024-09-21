@@ -36,6 +36,14 @@ def generate_launch_description():
         ),
 
         Node(
+            package="racecar_bringup",
+            executable="arduino_sensors",
+            name="arduino_sensors",
+            output="screen",
+            remappings=[("/raw_odom", "prop_sensors")]
+        ),
+
+        Node(
             package='racecar_teleop',
             executable='slash_teleop',
             name='teleop',
