@@ -1,36 +1,126 @@
+/*
+Description: Arduino controller for the Slash platform (UdeS Racecar)
+Authors: SherbyRobotics, Marc-Olivier Fecteau, Justine Landry, Loïc Legault, Félix Tremblay
+Project Start: 2024-08-28
+Last Updated: 2024-09-21
+*/
 
-//=========================HEADER=============================================================
-// Firmware for the Arduino managing the propulsion of the slash platform (UdeS Racecar)
-//============================================================================================
-
-/////////////////////////////////////////////////////////////////
-// Includes
-///////////////////////////////////////////////////////////////////
+//==========================================================================//
+// DEPENDENCIES
+//==========================================================================//
 
 #include <Arduino.h>
 #include "PBUtils.h"
 #include "floatarray.pb.h"
-
 #include <SPI.h>
 #include <Servo.h>
-#define USB_USBCON
-#define IMU
 
-// IMU
+#define USB_USBCON
+#define IMU // User-specified define
+
 #ifdef IMU
 #include "MPU9250.h"
 MPU9250 imu(Wire, 0x68);
 #endif
 
-/***** (Custom) moving average for PID control loop *****/
+//==========================================================================//
+// USER-SPECIFIED VARIABLES
+//==========================================================================//
 
-const uint8_t MOVING_AVERAGE_SIZE = 20;
+static const int SLAVE_SELECT_ENCODER_PIN = 45;
+static const int SERVO_PWM_PIN = 9;
+static const int DRIVE_PWM_PIN = 6;  // H-bridge drive PWM
+static const int DRIVE_DIRECTION_PIN = 42;
+
+static const float FILTER_RC = 0.1;
+static const float VELOCITY_KP = 9.0;
+static const float VELOCITY_KI = 24.0;
+static const float VELOCITY_KD = 0.0;
+static const float POSITION_KP = 7.0;
+static const float POSITION_KI = 0.0;
+static const float POSITION_KD = 1.3;
+static const float POSITION_ERROR_INTEGRAL_SATURATION = 100.0;
+
+static const float TIME_PERIOD_LOW = 2.0f;        // Internal PID loop @ 500 Hz
+static const unsigned long TIME_PERIOD_HIGH = 20; // ROS 2 communication @ 50 Hz
+static const unsigned long MAX_COM_DELAY = 1000; // Maximum communication delay (ms)
+
+const int DRIVE_WAKEUP_TIME = 20; // µs
+
+//==========================================================================//
+// CONTROLLER CONSTANTS
+//==========================================================================//
+
+static const int PWM_MIN_SERVO = 30;
+static const int PWM_ZERO_SERVO = 90;
+static const int PWM_MAX_SERVO = 150;
+
+static const int PWM_MIN_DRIVE = -511;
+static const int PWM_ZERO_DRIVE = 0;
+static const int PWM_MAX_DRIVE = 511;
+
+const float MAX_BATTERY_VOLTAGE = 8.0;          // V
+const float MAX_STEERIG_ANGLE = 40 * PI / 180;  // rad
+static const float RAD2PWM = (float)(PWM_ZERO_SERVO - PWM_MIN_SERVO) / MAX_STEERIG_ANGLE;
+static const float VOLT2PWM = (float)(PWM_ZERO_DRIVE - PWM_MIN_DRIVE) / MAX_BATTERY_VOLTAGE;
+static const float TICK2METER = 0.000002752;  // TODO: adjust value
+
+//==========================================================================//
+// CONTROLLER VARIABLES
+//==========================================================================//
+
+Servo steeringServo;
+
+long timer_debug = 0;
+long time_micros = 0;
+long time_micros_last = 0;
+
+float servo_reference = 0.0f; // rad
+float drive_reference = 0.0f; // V
+int8_t control_mode = 0;
+bool drive_standby = false;
+
+int servo_pwm = 0;
+int drive_pwm = 0;
+float drive_cmd = 0.0f;
+
+long encoder_now = 0;
+long encoder_old = 0;
+
+float position_now = 0.0f;  // m
+float velocity_now = 0.0f;  // m/s
+float velocity_old = 0.0f;  // m/s
+
+unsigned long velocity_time_now = 0;  // ms
+unsigned long velocity_time_old = 0;  // ms
+long velocity_time = 0;               // s
+unsigned long position_time_now = 0;  // ms
+unsigned long position_time_old = 0;  // ms
+float position_time = 0;              // s
+
+float velocity_error_integral = 0.0f;
+float velocity_error_differential = 0.0f;
+float position_error_integral = 0.0f;
+float position_error_differential = 0.0f;
+
+unsigned long time_now = 0;
+unsigned long time_last_low = 0;
+unsigned long time_last_high = 0;
+unsigned long time_last_com = 0;  // COM watchdog
+
+long encoder_last_high = 0;
+
+//==========================================================================//
+// (CUSTOM) MOVING AVERAGE FOR CONTROL LOOP
+//==========================================================================//
+
+static const uint8_t MOVING_AVERAGE_SIZE = 20;
 
 typedef struct MovingAverage {
   uint8_t cursor = 0;
   float arr[MOVING_AVERAGE_SIZE] = {0};
   float total = 0.0;
-}MovingAverage;
+} MovingAverage;
 
 MovingAverage moving_average;
 
@@ -51,157 +141,73 @@ float mavg_get_avg(MovingAverage* mavg) {
   return mavg->total / (float)MOVING_AVERAGE_SIZE;
 }
 
-///////////////////////////////////////////////////////////////////
-// Init I/O
-///////////////////////////////////////////////////////////////////
+//==========================================================================//
+// TOPICS
+//==========================================================================//
 
-// Servo objects for PWM control of
-// Sterring servo-motor
-Servo steeringServo;
+FloatArray sensors_msg = FloatArray_init_zero;
+FloatArray cmd_msg = FloatArray_init_zero;
 
-// Slave Select pins for the encoder
-const int slaveSelectEnc = 45;
+const Topic topics[2] = {
+  {SENSORS, FloatArray_fields, &sensors_msg},
+  {CMD, FloatArray_fields, &cmd_msg}
+};
 
-// Pins for outputs PWM
-const int ser_pin = 9; // Servo
+//==========================================================================//
+// SERIAL COMMUNICATION
+//==========================================================================//
 
-// Custom drive
-const int dri_pwm_pin = 6;  // H bridge drive pwm
-const int dri_dir_pin = 42; //
+const String START_DELIMITER = "<{";
+const String END_DELIMITER = ">}";
 
-// debug
-long timer_debug = 0;
-long time_micros = 0;
-long time_micros_last = 0;
+bool reception_in_progress = false;
+int input_cmd_index = 0;
+char input_cmd[MAX_MSG_LEN] = "\0";
+bool input_cmd_complete = false;
+int input_cmd_type = -1;
+int new_msgs_count = 0;
+int new_msgs_IDs[MAX_NBS_MSG];
+bool msg_discarded_length = false;
 
-///////////////////////////////////////////////////////////////////
-// Parameters
-///////////////////////////////////////////////////////////////////
+PBUtils pbUtils(topics);
 
-// Controller
+const unsigned long BAUD_RATE = 250000;
 
-// TODO: VOUS DEVEZ DETERMINEZ DES BONS PARAMETRES SUIVANTS
-const float filter_rc = 0.1;
-const float vel_kp = 9.0;
-const float vel_ki = 24.0;
-const float vel_kd = 0.0;
-const float pos_kp = 7.0;
-const float pos_kd = 1.3;
-const float pos_ki = 0.0;
-const float pos_ei_sat = 100.0;
+//==========================================================================//
+// FUNCTIONS
+//==========================================================================//
 
-// Loop period
-const unsigned long time_period_low = 2;    // 500 Hz for internal PID loop
-const unsigned long time_period_high = 20;  // 50 Hz  for ROS communication
-const unsigned long time_period_com = 1000; // 1000 ms = max com delay (watchdog)
-
-// Hardware min-zero-max range for the steering servo and the drive
-const int pwm_min_ser = 30;
-const int pwm_zer_ser = 90;
-const int pwm_max_ser = 150;
-const int pwm_min_dri = -511;
-const int pwm_zer_dri = 0;
-const int pwm_max_dri = 511;
-
-const int dri_wakeup_time = 20; // micro second
-
-// Units Conversion
-const double batteryV = 8;
-const double maxAngle = 40 * (2 * 3.1416) / 360; // max steering angle in rad
-const double rad2pwm = (pwm_zer_ser - pwm_min_ser) / maxAngle;
-const double volt2pwm = (pwm_zer_dri - pwm_min_dri) / batteryV;
-const double tick2m = 0.000002752; // To confirm
-
-///////////////////////////////////////////////////////////////////
-// Memory
-///////////////////////////////////////////////////////////////////
-
-// Inputs
-float ser_ref = 0; // rad
-float dri_ref = 0; // volt
-int ctl_mode = 0;  // discrete control mode
-int dri_standby = 0;
-
-// Ouputs
-int ser_pwm = 0;
-int dri_pwm = 0;
-float dri_cmd = 0;
-
-// Controller memory (differentiation, filters and integral actions)
-signed long enc_now = 0;
-signed long enc_old = 0;
-
-float pos_now = 0;
-float vel_now = 0;
-float vel_old = 0;
-unsigned long vel_time_new = 0;
-unsigned long vel_time_old = 0;
-float vel_time = 0;
-unsigned long pos_time_new = 0;
-unsigned long pos_time_old = 0;
-float pos_time = 0;
-
-float vel_error_int = 0;
-float pos_error_int = 0;
-float vel_error_d = 0;
-float pos_error_d = 0;
-
-// Loop timing
-unsigned long time_now = 0;
-unsigned long time_last_low = 0;
-unsigned long time_last_high = 0;
-unsigned long time_last_com = 0; // com watchdog
-
-// For odometry
-signed long enc_last_high = 0;
-
-///////////////////////////////////////////////////////////////////
-// Encoder init/read/reset functions
-///////////////////////////////////////////////////////////////////
-
-//////////////////////////////////////
-void initEncoder()
-{
-
-  // Set slave selects as outputs
-  pinMode(slaveSelectEnc, OUTPUT);
-
-  // Raise select pin
-  // Communication begins when you drop the individual select signsl
-  digitalWrite(slaveSelectEnc, HIGH);
-
+void encoder_init() {
+  pinMode(SLAVE_SELECT_ENCODER_PIN, OUTPUT);
+  digitalWrite(SLAVE_SELECT_ENCODER_PIN, HIGH);
   SPI.begin();
-
-  // Initialize encoder
-  //    Clock division factor: 0
-  //    Negative index input
-  //    free-running count mode
-  //    x4 quatrature count mode (four counts per quadrature cycle)
-  // NOTE: For more information on commands, see datasheet
-  digitalWrite(slaveSelectEnc, LOW);  // Begin SPI conversation
-  SPI.transfer(0x88);                 // Write to MDR0
-  SPI.transfer(0x03);                 // Configure to 4 byte mode
-  digitalWrite(slaveSelectEnc, HIGH); // Terminate SPI conversation
-
-  mavg_init(&moving_average);
+  /*
+    Initialize encoder
+      Clock division factor: 0
+      Negative index input
+      Free-running count mode
+      x4 quadrature count mode (four counts / quadrature cycle)
+    NOTE: for more information on commands, see datasheet
+  */
+  digitalWrite(SLAVE_SELECT_ENCODER_PIN, LOW);  // Begin SPI communication
+  SPI.transfer(0x88);                           // Write to MDR0
+  SPI.transfer(0x03);                           // Configure to 4-byte mode
+  digitalWrite(SLAVE_SELECT_ENCODER_PIN, HIGH); // Terminate SPI communication
 }
 
-//////////////////////////////////////
-long readEncoder()
-{
-
+long encoder_read() {
   // Initialize temporary variables for SPI read
   unsigned int count_1, count_2, count_3, count_4;
   long count_value;
 
   // Read encoder
-  digitalWrite(slaveSelectEnc, LOW); // Begin SPI conversation
-  SPI.transfer(0x60);                // Request count
-  count_1 = SPI.transfer(0x00);      // Read highest order byte
+  digitalWrite(SLAVE_SELECT_ENCODER_PIN, LOW);  // Begin SPI communication
+  SPI.transfer(0x60);                           // Request count
+  count_1 = SPI.transfer(0x00);                 // Read highest order byte
   count_2 = SPI.transfer(0x00);
   count_3 = SPI.transfer(0x00);
-  count_4 = SPI.transfer(0x00);       // Read lowest order byte
-  digitalWrite(slaveSelectEnc, HIGH); // Terminate SPI conversation
+  count_4 = SPI.transfer(0x00);                 // Read lowest order byte
+  digitalWrite(SLAVE_SELECT_ENCODER_PIN, HIGH); // Terminate SPI communication
 
   // Calculate encoder count
   count_value = (count_1 << 8) + count_2;
@@ -211,456 +217,313 @@ long readEncoder()
   return count_value;
 }
 
-//////////////////////////////////////
-void clearEncoderCount()
-{
-
-  // Set encoder1's data register to 0
-  digitalWrite(slaveSelectEnc, LOW); // Begin SPI conversation
-  // Write to DTR
-  SPI.transfer(0x98);
-  // Load data
-  SPI.transfer(0x00); // Highest order byte
+void encoder_clear_count() {
+  /* Set encoder1's data register to 0 */
+  digitalWrite(SLAVE_SELECT_ENCODER_PIN, LOW);  // Begin SPI communication
+  SPI.transfer(0x98);                           // Write to DTR
+  SPI.transfer(0x00);                           // Highest order byte
   SPI.transfer(0x00);
   SPI.transfer(0x00);
-  SPI.transfer(0x00);                 // lowest order byte
-  digitalWrite(slaveSelectEnc, HIGH); // Terminate SPI conversation
+  SPI.transfer(0x00);                           // lowest order byte
+  digitalWrite(SLAVE_SELECT_ENCODER_PIN, HIGH); // Terminate SPI communication
 
-  delayMicroseconds(100); // provides some breathing room between SPI conversations
+  delayMicroseconds(100); // Provides some breathing room between SPI communications
 
   // Set encoder1's current data register to center
-  digitalWrite(slaveSelectEnc, LOW); // Begin SPI conversation
+  digitalWrite(SLAVE_SELECT_ENCODER_PIN, LOW);  // Begin SPI communication
   SPI.transfer(0xE0);
-  digitalWrite(slaveSelectEnc, HIGH); // Terminate SPI conversation
+  digitalWrite(SLAVE_SELECT_ENCODER_PIN, HIGH); // Terminate SPI communication
 }
 
-///////////////////////////////////////////////////////////////////
-// Convertion functions
-///////////////////////////////////////////////////////////////////
+#define CLAMP(x, min, max) (x) < (min) ? (min) : (x) > (max) ? (max) : (x)
 
-// Convertion function : Servo Angle --> PWM
-double ser2pwm(double cmd)
-{
+int servo_angle_to_pwm(float cmd) {
+  float pwm_d = cmd * RAD2PWM + (float)PWM_ZERO_SERVO;  // Scale and offset
+  int pwm = (int)(pwm_d + 0.5f);  // Rounding and conversion
 
-  // Scale and offset
-  double pwm_d = cmd * rad2pwm + (double)pwm_zer_ser;
-
-  // Rounding and conversion
-  int pwm = (int)(pwm_d + 0.5);
-
-  // Saturations
-  if (pwm > pwm_max_ser)
-  {
-    pwm = pwm_max_ser;
-  }
-  if (pwm < pwm_min_ser)
-  {
-    pwm = pwm_min_ser;
-  }
-
-  return pwm;
+  return CLAMP(pwm, PWM_MIN_SERVO, PWM_MAX_SERVO);
 }
 
-// Convertion function : Volt Command --> PWM
-double cmd2pwm(double cmd)
-{
+int voltage_cmd_to_pwm(float cmd) {
+  int pwm = (int)(cmd / MAX_BATTERY_VOLTAGE * (float)PWM_MAX_DRIVE + 0.5f); // Scale and offset
 
-  int pwm = (int)(cmd / batteryV * pwm_max_dri + 0.5);
-
-  // Saturations
-  if (pwm < pwm_min_dri)
-  {
-    pwm = pwm_min_dri;
-  }
-  if (pwm > pwm_max_dri)
-  {
-    pwm = pwm_max_dri;
-  }
-
-  return pwm;
+  return CLAMP(pwm, PWM_MIN_DRIVE, PWM_MAX_DRIVE);
 }
 
-///////////////////////////////////////////////////////////////////
-// Set PWM value
-///////////////////////////////////////////////////////////////////
-void set_pwm(int pwm)
-{
-
-  // Zero cmd
-  if (pwm == 0)
-  {
-    digitalWrite(dri_pwm_pin, LOW);
-    dri_standby = 1;
-  }
-
-  // Non-zero PWM
-  else
-  {
-
-    // Wake-up PWM if if needed
-    if (dri_standby == 1)
-    {
-      digitalWrite(dri_pwm_pin, HIGH);
-      delayMicroseconds(dri_wakeup_time);
-      dri_standby = 0;
+void set_pwm(int pwm) {
+  if(pwm == 0) {
+    digitalWrite(DRIVE_PWM_PIN, LOW);
+    drive_standby = true;
+  } else {
+    if(drive_standby) {
+      digitalWrite(DRIVE_PWM_PIN, HIGH);
+      delayMicroseconds(DRIVE_WAKEUP_TIME);
+      drive_standby = false;
     }
 
-    // PWM direction
-    if (pwm < 0)
-    {
-      digitalWrite(dri_dir_pin, HIGH);
-    }
-    else
-    {
-      digitalWrite(dri_dir_pin, LOW);
+    if(pwm < 0) {
+      digitalWrite(DRIVE_DIRECTION_PIN, HIGH);
+    } else {
+      digitalWrite(DRIVE_DIRECTION_PIN, LOW);
     }
 
-    // Registery-based pwm duty cycle adjustement
+    /* === Registery-based pwm duty cycle adjustement === */
 
     // Fast PWM, 9-bit, prescaler divider = 1
     TCCR4A = _BV(COM2A1) | _BV(COM2B1) | _BV(WGM41);
     TCCR4B = _BV(CS20) | _BV(WGM42);
 
-    OCR4A = abs(pwm) - 1; // set the duty cycle of pin 6
+    OCR4A = abs(pwm) - 1; // Set the Duty-Cycle of pin 6
   }
 }
 
-// ==================== TOPICS ====================
-// Out
-FloatArray sensorsMsg = FloatArray_init_zero;
+void controller() {
+  static float velocity_error_last = 0.0f;
+  static float position_error_last = 0.0f;
 
-// In
-FloatArray cmdMsg = FloatArray_init_zero;
+  servo_pwm = servo_angle_to_pwm(servo_reference);
+  steeringServo.write(servo_pwm);
 
-const Topic topics[] = {
-    // Out
-    {SENSORS, FloatArray_fields, &sensorsMsg},
-    // In
-    {CMD, FloatArray_fields, &cmdMsg},
-};
-
-// ==================== SERIAL COMMUNICATION ====================
-const String START_DELIMITER = "<{";
-const String END_DELIMITER = ">}";
-
-bool recvInProgress = false;
-int inCmdIndex = 0;
-char inCmd[MAX_MSG_LEN] = {"\0"};
-bool inCmdComplete = false;
-int inCmdType = -1;
-int nbsNewMsgs = 0;
-int newMsgsIds[MAX_NBS_MSG];
-bool msgDiscardedLength = false;
-
-PBUtils pbUtils(topics);
-
-const unsigned long baud_rate = 250000;
-
-///////////////////////////////////////////////////////////////////
-// Controller One tick
-///////////////////////////////////////////////////////////////////
-void ctl(int dt_low)
-{
-
-  ///////////////////////////////////////////////
-  // STEERING CONTROL
-  ///////////////////////////////////////////////
-
-  // Servo Open-Loop fonction
-  ser_pwm = ser2pwm(ser_ref);
-  steeringServo.write(ser_pwm);
-
-  ///////////////////////////////////////////////
-  // PROPULSION CONTROL
-  ///////////////////////////////////////////////
-
-  // Retrieve current encoder counters
-  enc_now = readEncoder();
-
-  // Position computation
-  pos_now = (float)enc_now * tick2m;
+  encoder_now = encoder_read();
+  position_now = (float)encoder_now * TICK2METER;
 
   // Velocity computation
-  vel_time_new = millis();
-  vel_time = vel_time_new - vel_time_old;
+  velocity_time_now = millis();
+  velocity_time = velocity_time_now - velocity_time_old;
 
-  // TODO: VOUS DEVEZ COMPLETEZ LA DERIVEE FILTRE ICI
+  /* === Dérivée filtrée === */
   // float vel_raw = (enc_now - enc_old) * tick2m / dt_low * 1000;
-  float vel_raw = (enc_now - enc_old) * tick2m / vel_time * 1000;
-  // float alpha = 0;         // TODO
+  float vel_raw = (float)(encoder_now - encoder_old) * TICK2METER / (float)velocity_time * 1000;
   mavg_add(&moving_average, vel_raw);
-  float vel_fil = mavg_get_avg(&moving_average); // Filter TODO
-  vel_time_old = vel_time_new;
+  float velocity_filtered = mavg_get_avg(&moving_average);
+  velocity_time_old = velocity_time_now;
 
-  // Propulsion Controllers
+  /*
+  Control modes:
+    - 0: Zero output
+    - 1: Full open-loop
+    - 2: Low-level velocity control
+    - 3: Low-level position control
+    - 4: Reset encoder count
+  */
 
-  //////////////////////////////////////////////////////
-  if (ctl_mode == 0)
-  {
-    // Zero output
-    dri_pwm = pwm_zer_dri;
+  if(control_mode == 0) {
+    drive_pwm = PWM_ZERO_DRIVE;
+    
+    velocity_error_integral = 0.0f;
+    position_error_integral = 0.0f;
+  } else if (control_mode == 1) {
+    // Commands received in Volts directly
+    drive_cmd = drive_reference;
+    drive_pwm = voltage_cmd_to_pwm(drive_cmd);
 
-    // reset integral actions
-    vel_error_int = 0;
-    pos_error_int = 0;
-  }
-  else if (ctl_mode == 1)
-  {
-    // Fully Open-Loop
-    // Commands received in [Volts] directly
-    dri_cmd = dri_ref;
-    dri_pwm = cmd2pwm(dri_cmd);
+    velocity_error_integral = 0.0f;
+    position_error_integral = 0.0f;
+  } else if (control_mode == 2) {
+    // Commands received in [m/s] as setpoints
+    float velocity_reference, velocity_error = 0.0f;
 
-    // reset integral actions
-    vel_error_int = 0;
-    pos_error_int = 0;
-  }
-  else if (ctl_mode == 2)
-  {
-    // Low-level Velocity control
-    // Commands received in [m/sec] setpoints
+    velocity_reference = drive_reference;
+    velocity_error = velocity_reference - velocity_filtered;
+    velocity_error_integral += velocity_error;
+    velocity_error_differential = velocity_error_last - velocity_error;
 
-    float vel_ref, vel_error;
+    float velocity_proportional = VELOCITY_KP * velocity_error;
+    float velocity_integral = VELOCITY_KI * velocity_error_integral * (TIME_PERIOD_LOW / 1000.0f);
+    float velocity_differential = VELOCITY_KD * velocity_error_differential / (TIME_PERIOD_LOW/1000.0f);
 
-    // TODO: VOUS DEVEZ COMPLETEZ LE CONTROLLEUR SUIVANT
-    vel_ref = dri_ref;
-    vel_error = vel_ref - vel_fil;
-    vel_error_int = 0;            // TODO
-    dri_cmd = vel_kp * vel_error; // proportionnal only
+    drive_cmd = velocity_proportional + velocity_integral + velocity_differential;
+    drive_pwm = voltage_cmd_to_pwm(drive_cmd);
 
-    dri_pwm = cmd2pwm(dri_cmd);
-  }
-  ///////////////////////////////////////////////////////
-  else if (ctl_mode == 3)
-  {
-    // Low-level Position control
-    // Commands received in [m] setpoints
+    velocity_error_last = velocity_error;
+  } else if(control_mode == 3) {
+    // Commands received in [m] as setpoints
+    float position_reference, position_error = 0.0f;
 
-    float pos_ref, pos_error, pos_error_ddt;
-
-    // TODO: VOUS DEVEZ COMPLETEZ LE CONTROLLEUR SUIVANT
-    pos_ref = dri_ref;
-    pos_error = 0;     // TODO
-    pos_error_ddt = 0; // TODO
-    pos_error_int = 0; // TODO
+    position_reference = drive_reference;
+    position_error = position_reference - position_now;
+    position_error_integral += position_error;
+    position_error_differential = position_error_last - position_error;
 
     // Anti wind-up
-    if (pos_error_int > pos_ei_sat)
-    {
-      pos_error_int = pos_ei_sat;
+    if(position_error_integral > POSITION_ERROR_INTEGRAL_SATURATION) {
+      position_error_integral = POSITION_ERROR_INTEGRAL_SATURATION;
     }
 
-    dri_cmd = 0; // TODO
+    position_time_now = millis();
+    position_time = (float)(position_time_now - position_time_old) / 1000.0f;
 
-    dri_pwm = cmd2pwm(dri_cmd);
+    float position_proportional = POSITION_KP * position_error;
+    float position_integral = POSITION_KI * position_error_integral * position_time;
+    float position_differential = POSITION_KD * position_error_differential / position_time;
+
+    drive_pwm = voltage_cmd_to_pwm(drive_cmd);
+
+    position_error_last = position_error;
+  } else if(control_mode == 4) {
+    encoder_clear_count();
+    drive_pwm = PWM_ZERO_DRIVE;
+    
+    velocity_error_integral = 0.0f;
+    position_error_integral = 0.0f;
+  } else {
+    drive_pwm = PWM_ZERO_DRIVE;
+    
+    velocity_error_integral = 0;
+    position_error_integral = 0;
   }
-  else if (ctl_mode == 4)
-  {
-    // Reset encoder counts
+  
+  set_pwm(drive_pwm); // Update H-bridge PWM
 
-    clearEncoderCount();
-
-    // reset integral actions
-    vel_error_int = 0;
-    pos_error_int = 0;
-
-    dri_pwm = pwm_zer_dri;
-  }
-  else
-  {
-    // reset integral actions
-    vel_error_int = 0;
-    pos_error_int = 0;
-
-    dri_pwm = pwm_zer_dri;
-  }
-  ///////////////////////////////////////////////////////
-
-  // H-bridge pwm update
-  set_pwm(dri_pwm);
-
-  // Update memory variable
-  enc_old = enc_now;
-  vel_old = vel_fil;
+  encoder_old = encoder_now;
+  velocity_old = velocity_filtered;
 }
 
-///////////////////////////////////////////////////////////////////
-// Arduino Initialization
-///////////////////////////////////////////////////////////////////
-void setup()
-{
-  Serial.begin(baud_rate);
-  delay(10);
+//==========================================================================//
+// CALLBACKS
+//==========================================================================//
 
-  // Init PWM output Pins
-  steeringServo.attach(ser_pin);
-  pinMode(dri_dir_pin, OUTPUT);
-  pinMode(dri_pwm_pin, OUTPUT);
-
-  // Init and Clear Encoders
-  initEncoder();
-  clearEncoderCount();
-
-  // Initialize Steering and drive cmd to neutral
-  steeringServo.write(pwm_max_ser);
-  set_pwm(0);
-
-  // Initialize
-  // #ifdef IMU
-  //   int stat = imu.begin();
-  //   imu.setAccelRange(MPU9250::ACCEL_RANGE_2G);
-  //   imu.setGyroRange(MPU9250::GYRO_RANGE_250DPS);
-  //   imu.setDlpfBandwidth(MPU9250::DLPF_BANDWIDTH_41HZ);
-  //   imu.setSrd(9); //100 Hz update rate
-  // #endif
-  //
-  delay(3000);
-  steeringServo.write(pwm_zer_ser);
-}
-
-void loop()
-{
-  time_now = millis();
-
-  /////////////////////////////////////////////////////////////
-  // Watchdog: stop the car if no recent communication from ROS
-  //////////////////////////////////////////////////////////////
-
-  if ((time_now - time_last_com) > time_period_com)
-  {
-    // All-stop
-    dri_ref = 0;  // velocity set-point
-    ctl_mode = 2; // closed-loop velocity mode
-  }
-
-  ////////////////////////////////////////
-  // Low-level controller
-  ///////////////////////////////////////
-
-  if ((time_now - time_last_low) > time_period_low)
-  {
-
-    ctl(time_now - time_last_low);                // one control tick
-    timer_debug = time_micros - time_micros_last; ///
-
-    time_last_low = time_now;
-    time_micros_last = time_micros;
-  }
-
-  if (inCmdComplete)
-  {
-    inCmdComplete = false;
-    bool status = pbUtils.decodePb(inCmd, newMsgsIds, nbsNewMsgs);
-
-    if (status && nbsNewMsgs > 0)
-    {
-      for (int i = 0; i < nbsNewMsgs; ++i)
-      {
-        switch (newMsgsIds[i])
-        {
-        case CMD:
-          cmdCallback();
-          break;
-
-        default:
-          break;
-        }
-      }
-    }
-    else
-      inCmdType = -1;
-  }
-
-  unsigned long dt = time_now - time_last_high;
-  if (dt > time_period_high)
-  {
-
-    sensorsCallback(dt);
-
-    time_last_high = time_now;
-    enc_last_high = enc_now;
-  }
-}
-
-// ======================================== CALLBACKS ========================================
-
-void cmdCallback()
-{
-  ser_ref = -cmdMsg.data[0]; // rad
-  dri_ref = cmdMsg.data[1];  // volt or m/s or m
-  ctl_mode = cmdMsg.data[2]; // 1    or 2   or 3*/
+void cmd_callback() {
+  servo_reference = -cmd_msg.data[0]; // [rad]
+  drive_reference = cmd_msg.data[1];  // [V] | [m/s] | [m]
+  control_mode = (uint8_t)cmd_msg.data[2];
 
   time_last_com = millis();
 }
 
-void sensorsCallback(unsigned long dt)
-{
-  sensorsMsg.data_count = 19;
-  sensorsMsg.data[0] = pos_now; // wheel position in m
-  sensorsMsg.data[1] = vel_old; // wheel velocity in m/sec
+void sensors_callback(unsigned long dt) {
+  sensors_msg.data_count = 19;
+  sensors_msg.data[0] = position_now; // wheel position (m)
+  sensors_msg.data[1] = velocity_old; // wheel velocity (m/s)
 
   // For DEBUG
-  sensorsMsg.data[2] = (float)dri_ref;                     // set point received by arduino
-  sensorsMsg.data[3] = (float)dri_cmd;                     // drive set point in volts
-  sensorsMsg.data[4] = (float)dri_pwm;                     // drive set point in pwm
-  sensorsMsg.data[5] = (float)enc_now;                     // raw encoder counts
-  sensorsMsg.data[6] = (float)ser_ref;                     // steering angle (don't remove/change, used for GRO830)
-  sensorsMsg.data[7] = (float)(ctl_mode);                  // for com debug
-  sensorsMsg.data[8] = (float)dt;                          // time elapsed since last publish (don't remove/change, used for GRO830)
-  sensorsMsg.data[9] = (enc_now - enc_last_high) * tick2m; // distance travelled since last publish (don't remove/change, used for GRO830)
+  sensors_msg.data[2] = drive_reference;                                       // Set point received by Arduino
+  sensors_msg.data[3] = drive_cmd;                                             // Drive set point (V)
+  sensors_msg.data[4] = (float)drive_pwm;                                      // Drive set point (PWM)
+  sensors_msg.data[5] = (float)encoder_now;                                    // Raw encoder counts
+  sensors_msg.data[6] = (float)servo_reference;                                // Steering angle (GRO830)
+  sensors_msg.data[7] = (float)control_mode;                                   // For COM debug
+  sensors_msg.data[8] = (float)dt;                                             // Time elapsed since last publish (GRO830)
+  sensors_msg.data[9] = (float)(encoder_now - encoder_last_high) * TICK2METER; // distance travelled since last publish (GRO830)
 
-// Read IMU (don't remove/change, used for GRO830)
+// Read IMU (GRO830)
 #ifdef IMU
   imu.readSensor();
-  sensorsMsg.data[10] = imu.getAccelX_mss();
-  sensorsMsg.data[11] = imu.getAccelY_mss();
-  sensorsMsg.data[12] = imu.getAccelZ_mss();
-  sensorsMsg.data[13] = imu.getGyroX_rads();
-  sensorsMsg.data[14] = imu.getGyroY_rads();
-  sensorsMsg.data[15] = imu.getGyroZ_rads();
-  sensorsMsg.data[16] = imu.getMagX_uT();
-  sensorsMsg.data[17] = imu.getMagY_uT();
-  sensorsMsg.data[18] = imu.getMagZ_uT();
+  sensors_msg.data[10] = imu.getAccelX_mss();
+  sensors_msg.data[11] = imu.getAccelY_mss();
+  sensors_msg.data[12] = imu.getAccelZ_mss();
+  sensors_msg.data[13] = imu.getGyroX_rads();
+  sensors_msg.data[14] = imu.getGyroY_rads();
+  sensors_msg.data[15] = imu.getGyroZ_rads();
+  sensors_msg.data[16] = imu.getMagX_uT();
+  sensors_msg.data[17] = imu.getMagY_uT();
+  sensors_msg.data[18] = imu.getMagZ_uT();
 #endif
 
   pbUtils.pbSend(1, SENSORS);
-  // Serial.println(' ');
   Serial.flush();
 }
 
-// ======================================== SERIAL ========================================
-void serialEvent()
-{
-  while (Serial.available() > 0)
-  {
-    char inChar = Serial.read();
-    int startDelimIndex = START_DELIMITER.indexOf(inChar);
+//==========================================================================//
+// ENTRY POINTS (MAIN)
+//==========================================================================//
 
-    if (recvInProgress)
-    {
-      int endDelimIndex = END_DELIMITER.indexOf(inChar); // If start and end index is diff, will always return end
-      if (endDelimIndex == -1)
-      {
-        inCmd[inCmdIndex++] = inChar;
+void setup() {
+  Serial.begin(BAUD_RATE);
+  delay(10);
 
-        if (inCmdIndex >= MAX_MSG_LEN - 1) // If the last char isn't the end delimiter the message is not going to fit
-        {
-          msgDiscardedLength = true;
-          inCmd[inCmdIndex] = '\0';
-          recvInProgress = false;
-          inCmdIndex = 0;
-        }
+  steeringServo.attach(SERVO_PWM_PIN);
+  pinMode(DRIVE_DIRECTION_PIN, OUTPUT);
+  pinMode(DRIVE_PWM_PIN, OUTPUT);
+
+  encoder_init();
+  encoder_clear_count();
+
+  mavg_init(&moving_average);
+
+  steeringServo.write(PWM_MAX_SERVO);
+  set_pwm(0);
+
+#ifdef IMU
+  int stat = imu.begin();
+  imu.setAccelRange(MPU9250::ACCEL_RANGE_2G);
+  imu.setGyroRange(MPU9250::GYRO_RANGE_250DPS);
+  imu.setDlpfBandwidth(MPU9250::DLPF_BANDWIDTH_41HZ);
+  imu.setSrd(9); //100 Hz update rate
+#endif
+
+  delay(3000);
+  steeringServo.write(PWM_ZERO_SERVO);
+}
+
+void loop() {
+  time_now = millis();
+
+  if((time_now - time_last_com) > MAX_COM_DELAY) {
+    drive_reference = 0.0f;
+    control_mode = 0;
+  }
+
+  if((time_now - time_last_low) > TIME_PERIOD_LOW) {
+    controller();
+    
+    time_last_low = time_now;
+    timer_debug = time_micros - time_micros_last;
+    time_micros_last = time_micros;
+  }
+
+  if(input_cmd_complete) {
+    input_cmd_complete = false;
+    bool status = pbUtils.decodePb(input_cmd, new_msgs_IDs, new_msgs_count);
+
+    if(status && new_msgs_count > 0) {
+      for(size_t i = 0; i < new_msgs_count; ++i) {
+        if(new_msgs_IDs[i] == CMD) cmd_callback();
+        else break;
       }
-      else
-      {
-        inCmd[inCmdIndex] = '\0';
-        recvInProgress = false;
-        inCmdIndex = 0;
-        inCmdType = endDelimIndex;
-        inCmdComplete = true;
-      }
+    } else {
+      input_cmd_type = -1;
     }
-    else if (startDelimIndex != -1)
-      recvInProgress = true;
+  }
+
+  unsigned long dt = time_now - time_last_high;
+  if (dt > TIME_PERIOD_HIGH) {
+    sensors_callback(dt);
+
+    time_last_high = time_now;
+    encoder_last_high = encoder_now;
+  }
+}
+
+//==========================================================================//
+// SERIAL (UNUSED)
+//==========================================================================//
+
+void serial_event() {
+  while(Serial.available() > 0) {
+    char input_character = Serial.read();
+    int start_delimiter_index = START_DELIMITER.indexOf(input_character);
+
+    if(reception_in_progress) {
+      int end_delimiter_index = END_DELIMITER.indexOf(input_character); // If start and end index is diff, will always return end
+      if(end_delimiter_index == -1) {
+        input_cmd[input_cmd_index++] = input_character;
+
+        if(input_cmd_index >= MAX_MSG_LEN - 1) {  // If the last char isn't the end delimiter the message is NOT going to fit
+          msg_discarded_length = true;
+          input_cmd[input_cmd_index] = '\0';
+          reception_in_progress = false;
+          input_cmd_index = 0;
+        }
+      } else {
+        input_cmd[input_cmd_index] = '\0';
+        reception_in_progress = false;
+        input_cmd_index = 0;
+        input_cmd_type = end_delimiter_index;
+        input_cmd_complete = true;
+      }
+    } else if(start_delimiter_index != -1) {
+      reception_in_progress = true;
+    }
   }
 }
