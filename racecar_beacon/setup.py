@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'poll_pos = racecar_beacon.lab_poll_pos:main',
+            'poll_position = racecar_beacon.lab_poll_pos:main',
             'ros_monitor = racecar_beacon.ros_monitor:main',
         ],
     },

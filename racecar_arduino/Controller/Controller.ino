@@ -10,10 +10,13 @@ Last Updated: 2024-09-21
 //==========================================================================//
 
 #include <Arduino.h>
-#include "PBUtils.h"
-#include "floatarray.pb.h"
 #include <SPI.h>
 #include <Servo.h>
+#include <HardwareSerial.h>
+#include <USBAPI.h>
+#include "PBUtils.h"
+#include "floatarray.pb.h"
+#include <stddef.h>
 
 #define USB_USBCON
 #define IMU // User-specified define
@@ -125,7 +128,7 @@ typedef struct MovingAverage {
 MovingAverage moving_average;
 
 void mavg_init(MovingAverage* mavg) {
-  for(size_t i = 0; i < MOVING_AVERAGE_SIZE; ++i) {
+  for(uint8_t i = 0; i < MOVING_AVERAGE_SIZE; ++i) {
     mavg->arr[i] = 0.0f;
   }
 }
@@ -477,7 +480,7 @@ void loop() {
     bool status = pbUtils.decodePb(input_cmd, new_msgs_IDs, new_msgs_count);
 
     if(status && new_msgs_count > 0) {
-      for(size_t i = 0; i < new_msgs_count; ++i) {
+      for(uint8_t i = 0; i < new_msgs_count; ++i) {
         if(new_msgs_IDs[i] == CMD) cmd_callback();
         else break;
       }

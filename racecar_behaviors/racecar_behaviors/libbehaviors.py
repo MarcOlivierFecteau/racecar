@@ -1,23 +1,22 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rclpy
-from rclpy.node import Node
-import cv2
-import tf2_ros
+# from rclpy.node import Node
+# import cv2 as cv
+# import tf2_ros
 import numpy as np
 from geometry_msgs.msg import Quaternion
-from tf2_ros import TransformListener
-from tf2_ros import Buffer
-from tf2_geometry_msgs import do_transform_point
+# from tf2_ros import TransformListener
+# from tf2_ros import Buffer
+# from tf2_geometry_msgs import do_transform_point
 import tf_transformations as transformations
 
 
-
-def quaternion_to_yaw(quat):
+def yaw_from_quaterion(quat: Quaternion):
     # Uses TF transforms to convert a quaternion to a rotation angle around Z.
     # Usage with an Odometry message: 
     #   yaw = quaternion_to_yaw(msg.pose.pose.orientation)
-    (roll, pitch, yaw) = transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
+    (_, p_, yaw) = transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
     return yaw
     
 def multiply_transforms(trans1, rot1, trans2, rot2):
@@ -38,7 +37,7 @@ def multiply_transforms(trans1, rot1, trans2, rot2):
 def brushfire(occupancyGrid):
     mapOfWorld = np.zeros(occupancyGrid.shape, dtype=int)
     mapOfWorld[occupancyGrid==100] = 1 # set all unknowns and obstacles to -1
-    mapOfWorld[occupancyGrid==-1] = 1 
+    mapOfWorld[occupancyGrid==-1] = 1
     
     # do brushfire algorithm here
     

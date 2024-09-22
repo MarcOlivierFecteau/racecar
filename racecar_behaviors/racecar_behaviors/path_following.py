@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
-import numpy as np
+# import numpy as np
 from nav_msgs.msg import Odometry
 
 class PathFollowing(Node):

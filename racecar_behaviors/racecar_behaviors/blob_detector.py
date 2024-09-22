@@ -7,17 +7,17 @@ from rclpy.qos import QoSProfile
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
-from std_msgs.msg import String, ColorRGBA
-from std_srvs.srv import Empty
+from std_msgs.msg import String
+# from std_srvs.srv import Empty
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Twist, Point
-import message_filters
+from geometry_msgs.msg import Twist
+# import message_filters
 
 import tf2_ros
 from tf2_ros import Buffer, TransformListener
 import tf_transformations
 from visualization_msgs.msg import Marker
-from libbehaviors import *
+from libbehaviors import multiply_transforms
 
 class BlobDetector(Node):
     def __init__(self):
@@ -111,7 +111,6 @@ class BlobDetector(Node):
 
     def image_callback(self, image):
         depth = self.depth
-        info = self.info
         
         if self.get_clock().now().to_msg().sec - self.wait_time < 5:
             self.twist_pub.publish(Twist())

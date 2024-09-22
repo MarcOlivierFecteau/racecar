@@ -1,16 +1,16 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, SetLaunchConfiguration
+from launch.actions import DeclareLaunchArgument
 from launch_ros.actions import Node
 from launch.actions import IncludeLaunchDescription
 from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+# from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     # Get the package directories
     rosbridge_server_pkg_share_dir = get_package_share_directory('rosbridge_server')
-    web_video_server_pkg_share_dir = get_package_share_directory('web_video_server')
-    racecar_web_interface_pkg_share_dir = get_package_share_directory('racecar_web_interface')
+    # web_video_server_pkg_share_dir = get_package_share_directory('web_video_server')
+    # racecar_web_interface_pkg_share_dir = get_package_share_directory('racecar_web_interface')
     
     port_argument = DeclareLaunchArgument(
         'port', default_value='9090',
@@ -27,7 +27,7 @@ def generate_launch_description():
     #Launch web_video_server node from web_video_server package
     web_video_server_node = Node(
         package='web_video_server',
-       executable='web_video_server',
+        executable='web_video_server',
         name='web_video_server',
         output='screen',
         parameters=[{'address': '10.42.0.1'}]  # Set the address parameter to "10.42.0.1"

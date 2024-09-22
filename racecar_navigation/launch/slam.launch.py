@@ -1,15 +1,15 @@
-from launch import LaunchDescription, LaunchContext
-from launch.actions import DeclareLaunchArgument, GroupAction, OpaqueFunction
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch_ros.actions import Node
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-import os
+# import os
 
 def launch_setup(context, *args, **kwargs):
     # Declare launch arguments
     prefix = LaunchConfiguration('prefix').perform(context)
     localization = LaunchConfiguration('localization').perform(context)
     database_path = LaunchConfiguration('database_path').perform(context)
-    odom_correction = LaunchConfiguration('odom_correction').perform(context)
+    # odom_correction = LaunchConfiguration('odom_correction').perform(context)
     use_sim_time = LaunchConfiguration('use_sim_time').perform(context)
     delete_db = LaunchConfiguration('delete_db').perform(context)
 

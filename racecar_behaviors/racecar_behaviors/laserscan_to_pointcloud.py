@@ -13,10 +13,8 @@ class LaserScanToPointCloud(Node):
         self.lp = lg.LaserProjection()
         self.pc_pub = self.create_publisher(PointCloud2, 'converted_pc', 1)
         self.subscription = self.create_subscription(
-            LaserScan,
-            '/scan',
-            self.scan_callback,
-            1)
+            LaserScan, "/scan", self.scan_callback, 1
+        )
 
     def scan_callback(self, msg):
         pc2_msg = self.lp.projectLaser(msg)

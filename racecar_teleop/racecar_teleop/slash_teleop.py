@@ -2,7 +2,7 @@
 import rclpy
 from rclpy import Parameter
 from rclpy.node import Node, Publisher, Subscription
-import numpy as np
+# import numpy as np
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist, Vector3
 

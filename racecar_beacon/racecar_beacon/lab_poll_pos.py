@@ -1,9 +1,8 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import LaserScan
-from nav_msgs.msg import Odometry
+# from sensor_msgs.msg import LaserScan
+# from nav_msgs.msg import Odometry
 from tf_transformations import euler_from_quaternion
 
 def quaternion_to_yaw(quat):

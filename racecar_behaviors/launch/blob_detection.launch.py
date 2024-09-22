@@ -6,9 +6,9 @@ from launch.conditions import IfCondition
 
 def launch_setup(context, *args, **kwargs):
     #Declare launch arguments
-    prefix = LaunchConfiguration('prefix').perform(context)
+    # prefix = LaunchConfiguration('prefix').perform(context)
     debug = LaunchConfiguration('debug').perform(context)
-    fixed_frame_id = LaunchConfiguration('fixed_frame_id').perform(context)
+    # fixed_frame_id = LaunchConfiguration('fixed_frame_id').perform(context)
 
      # Define nodes for behaviors
     republish_raspicam_node = Node(

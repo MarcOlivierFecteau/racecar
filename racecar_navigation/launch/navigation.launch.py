@@ -4,13 +4,13 @@ from ament_index_python.packages import get_package_share_directory
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import DeclareLaunchArgument, GroupAction, OpaqueFunction
-from launch_ros.actions import Node, SetRemap
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.actions import SetRemap
+from launch.substitutions import LaunchConfiguration
 
 def launch_setup(context, *args, **kwargs):
     prefix = LaunchConfiguration('prefix').perform(context)
     cmd_vel_topic = LaunchConfiguration('cmd_vel_topic').perform(context)
-    odom_topic = LaunchConfiguration('odom_topic').perform(context)
+    # odom_topic = LaunchConfiguration('odom_topic').perform(context)
     use_sim_time= LaunchConfiguration('use_sim_time').perform(context)
 
     # Set nav2 params file

@@ -1,13 +1,12 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-import socket
+# import socket
 import threading
-from struct import *
+# from struct import pack, unpack
 
-from nav_msgs.msg import Odometry
-from sensor_msgs.msg import LaserScan
+# from nav_msgs.msg import Odometry
+# from sensor_msgs.msg import LaserScan
 from tf_transformations import euler_from_quaternion
 
 HOST = "127.0.0.1"

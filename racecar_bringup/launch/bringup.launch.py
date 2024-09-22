@@ -1,21 +1,21 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
-from launch.substitutions import ThisLaunchFileDir
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-import os
-import xacro
+# from ament_index_python.packages import get_package_share_directory
+from launch.actions import TimerAction
+# from launch.substitutions import ThisLaunchFileDir
+# from launch.launch_description_sources import PythonLaunchDescriptionSource
+# import os
+# import xacro
 
 def generate_launch_description():
 
 
     # Package Directories    
-    racecar_description = get_package_share_directory('racecar_description')
+    # racecar_description = get_package_share_directory('racecar_description')
     # Parse robot description from xacro
-    robot_description_file = os.path.join(racecar_description, 'urdf', 'racecar.xacro')
-    robot_description_config = xacro.process_file(robot_description_file)
-    robot_description = {'robot_description': robot_description_config.toxml()}
+    # robot_description_file = os.path.join(racecar_description, 'urdf', 'racecar.xacro')
+    # robot_description_config = xacro.process_file(robot_description_file)
+    # robot_description = {'robot_description': robot_description_config.toxml()}
 
 
     return LaunchDescription([

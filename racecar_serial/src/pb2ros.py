@@ -7,13 +7,13 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 import serial
 
 from proto_gen_classes import floatarray_pb2
-from msg_utils import *
+# from msg_utils import *
 
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 
-from PBUtils import *
+from PBUtils import PBSerialHandler
 from geometry_msgs.msg import Twist
 
 
@@ -71,7 +71,7 @@ class ArduinoCommunicationNode(Node):
                     self.started = False
 
 
-    def controller_callback(self, msg):
+    def controller_callback(self, msg: Twist):
         
             float_array_msg = floatarray_pb2.FloatArray()
 

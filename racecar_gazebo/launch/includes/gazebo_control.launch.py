@@ -1,7 +1,7 @@
-import launch
+# import launch
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess
-import launch_ros.parameter_descriptions
+from launch.actions import ExecuteProcess
+# import launch_ros.parameter_descriptions
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -88,14 +88,14 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        # declare_prefix_arg,
+        prefix,
         # load_joint_controller_config,
-        # controller_manager_node,
+        controller_manager_node,
         # robot_state_publisher_node,
-        # spawner_node,
-        # servo_commands_node,
-        # gazebo_odometry_node,
-        # cmd_vel_to_ackermann_drive_node,
+        spawner_node,
+        servo_commands_node,
+        gazebo_odometry_node,
+        cmd_vel_to_ackermann_drive_node,
     ])
 
 if __name__ == '__main__':

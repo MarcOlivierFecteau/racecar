@@ -6,7 +6,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 import xacro
-import yaml
+# import yaml
 
 def launch_setup(context, *args, **kwargs):
     # Declare launch arguments
@@ -125,7 +125,7 @@ def launch_setup(context, *args, **kwargs):
     return [
         robot_state_publisher,
         robot_state_publisher2,
-        # bridge,
+        bridge,
         spawn1,
         spawn2,
         cmd_vel_arb,

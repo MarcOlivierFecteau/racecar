@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
@@ -43,7 +42,7 @@ class ArduinoSensors(Node):
             return
         
         elapsed_seconds = raw_odom.data[8]/1000.0
-        totalEncDistance = raw_odom.data[0]
+        # totalEncDistance = raw_odom.data[0]
         speed = raw_odom.data[9]/elapsed_seconds
         distance = speed*elapsed_seconds
         steering_angle = -raw_odom.data[6]
