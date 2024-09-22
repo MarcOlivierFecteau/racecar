@@ -238,19 +238,19 @@ void encoder_clear_count() {
   digitalWrite(SLAVE_SELECT_ENCODER_PIN, HIGH); // Terminate SPI communication
 }
 
-#define CLAMP(x, min, max) (x) < (min) ? (min) : (x) > (max) ? (max) : (x)
+#define clamp(x, min, max) ((x)<(min)?(min):((x)>(max)?(max):(x)))
 
 int servo_angle_to_pwm(float cmd) {
   float pwm_d = cmd * RAD2PWM + (float)PWM_ZERO_SERVO;  // Scale and offset
   int pwm = (int)(pwm_d + 0.5f);  // Rounding and conversion
 
-  return CLAMP(pwm, PWM_MIN_SERVO, PWM_MAX_SERVO);
+  return clamp(pwm, PWM_MIN_SERVO, PWM_MAX_SERVO);
 }
 
 int voltage_cmd_to_pwm(float cmd) {
   int pwm = (int)(cmd / MAX_BATTERY_VOLTAGE * (float)PWM_MAX_DRIVE + 0.5f); // Scale and offset
 
-  return CLAMP(pwm, PWM_MIN_DRIVE, PWM_MAX_DRIVE);
+  return clamp(pwm, PWM_MIN_DRIVE, PWM_MAX_DRIVE);
 }
 
 void set_pwm(int pwm) {
