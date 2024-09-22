@@ -30,7 +30,7 @@ def generate_launch_description():
         executable='web_video_server',
         name='web_video_server',
         output='screen',
-        parameters=[{'address': '10.42.0.1'}]  # Set the address parameter to "10.42.0.1"
+        parameters=[{'address': '127.0.0.1'}]  # Set the address parameter to "10.42.0.1"
     )
 
     # Launch ros2_publisher_camera node from racecar_web_interface package
