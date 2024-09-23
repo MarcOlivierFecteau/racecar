@@ -11,17 +11,23 @@ class CameraPublisher(Node):
         self.bridge = CvBridge()
 
     def publish_image(self):
-        cap = cv2.VideoCapture(0)  # Assuming the camera is connected as the default camera (index 0)
+        cap = cv2.VideoCapture(0)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+        if not cap.isOpened():
+            self.get_logger().error("Could NOT open camera.")
+            exit(-1)
         while cap.isOpened() and rclpy.ok():
             ret, frame = cap.read()
-            if ret:
+            if not ret:
+                self.get_logger().error("Could NOT read from camera.")
+                break
+            else:
                 # Convert the OpenCV image to a ROS Image message
                 ros_compressed_image_msg = self.bridge.cv2_to_imgmsg(frame, encoding='rgb8')
                 # Publish the ROS Image message
                 self.publisher.publish(ros_compressed_image_msg)
-            else:
-                self.get_logger().error("Error reading frame from camera")
-                break
 
 def main(args=None):
     rclpy.init(args=args)
