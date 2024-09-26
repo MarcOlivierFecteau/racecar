@@ -4,10 +4,11 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2
 
+
 class CameraPublisher(Node):
     def __init__(self):
-        super().__init__('ros2_publisher_camera')
-        self.publisher = self.create_publisher(Image, '/racecar/raspicam_node/image', 10)
+        super().__init__("ros2_publisher_camera")
+        self.publisher = self.create_publisher(Image, "/racecar/raspicam_node/image", 10)
         self.bridge = CvBridge()
 
     def publish_image(self):
@@ -24,10 +25,12 @@ class CameraPublisher(Node):
                 self.get_logger().error("Could NOT read from camera.")
                 break
             else:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 # Convert the OpenCV image to a ROS Image message
-                ros_compressed_image_msg = self.bridge.cv2_to_imgmsg(frame, encoding='rgb8')
+                ros_compressed_image_msg = self.bridge.cv2_to_imgmsg(frame, encoding="rgb8")
                 # Publish the ROS Image message
                 self.publisher.publish(ros_compressed_image_msg)
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -37,6 +40,6 @@ def main(args=None):
     camera_publisher.destroy_node()
     rclpy.shutdown()
 
-if __name__ == '__main__':
-    main()
 
+if __name__ == "__main__":
+    main()
