@@ -1,7 +1,9 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import TimerAction
-import datetime
+from launch.actions import TimerAction, ExecuteProcess
+from datetime import datetime
+
+bag_name = f"app2_{datetime.now().strftime("%Y_%m_%d_%H%M_%S")}"
 
 def generate_launch_description():
     return LaunchDescription([
@@ -15,7 +17,28 @@ def generate_launch_description():
                     name='arduino',
                     output='screen',
                 ),
+                ExecuteProcess(
+                    cmd = [
+                        "ros2", 
+                        "bag", 
+                        "record", 
+                        "--output", 
+                        f"/home/racecar/ros2_ws/bag_files/{bag_name}", 
+                        "--storage", 
+                        "sqlite3", 
+                        "--topics", 
+                        ["/prop_sensors"]
+                    ],
+                )
             ],
+        ),
+
+        Node(
+            package="racecar_bringup",
+            executable="arduino_sensors",
+            name="arduino_sensors",
+            output="screen",
+            remappings=[("/raw_odom", "prop_sensors")]
         ),
 
         Node(

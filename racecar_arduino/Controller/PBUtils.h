@@ -15,8 +15,8 @@ Description: Header file of the nanopb communication protocol
 #include <pb_decode.h>
 #include <Arduino.h>
 
-#define MAX_MSG_LEN                         200
-#define MAX_NBS_MSG                         6
+#define MAX_MSG_LEN 200
+#define MAX_NBS_MSG 6
 
 struct Topic {
   int id;
@@ -24,8 +24,7 @@ struct Topic {
   void* msg;
 };
 
-enum TOPICS
-{ 
+enum TOPICS {
   // OUT
   SENSORS,
 
@@ -35,23 +34,22 @@ enum TOPICS
   _NBS_TOPICS
 };
 
-class PBUtils
-{
-  public:
-    PBUtils(const Topic*);
-    ~PBUtils();
-    bool decodePb(char* , int *, int &);
-    void pbSend(int, ...);
+class PBUtils {
+public:
+  PBUtils(const Topic*);
+  ~PBUtils();
+  bool decodePb(char*, int*, int&);
+  void pbSend(int, ...);
 
-  private:
-    int parseMsg(char[], int *, char **);
-    void charsToBytes(char* , uint8_t*);
-    uint8_t charToHex(char, char);
-    
-    const pb_msgdesc_t *idToType[_NBS_TOPICS];
-    void* idToMsg[_NBS_TOPICS];
+private:
+  int parseMsg(char[], int*, char**);
+  void charsToBytes(char*, uint8_t*);
+  uint8_t charToHex(char, char);
+
+  const pb_msgdesc_t* idToType[_NBS_TOPICS];
+  void* idToMsg[_NBS_TOPICS];
 };
 
 
 
-#endif // _PBUTILS_H
+#endif  // _PBUTILS_H

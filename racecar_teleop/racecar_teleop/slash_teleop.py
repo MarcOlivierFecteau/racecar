@@ -4,7 +4,7 @@ from rclpy import Parameter
 from rclpy.node import Node, Publisher, Subscription
 import numpy as np
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Vector3
 
 PI: float = 3.141592
 
@@ -34,7 +34,7 @@ class Teleop(Node):
         self.pub_cmd: Publisher = self.create_publisher(Twist, "ctl_ref", 1)
         self.sub_joy: Subscription = self.create_subscription(Joy, "joy", self.joy_callback, 1)
 
-        self.cmd_msg = Twist(linear=(0.0, 0.0, 0.0), angular=(0.0, 0.0, 0.0))
+        self.cmd_msg = Twist(linear=Vector3(x=0.0, y=0.0, z=0.0), angular=Vector3(x=0.0, y=0.0, z=0.0))
         self.control_mode: int = -1
 
     def stop_all(self) -> None:
@@ -75,7 +75,7 @@ class Teleop(Node):
         if not msg.buttons[f710.buttons.LB]:
             self.stop_all()
         else:
-            if msg.buttons[f710.buttons.SELECT]:  # No ctl_ref msg published
+            if msg.buttons[f710.buttons.START]:  # No ctl_ref msg published
                 return
             if msg.buttons[f710.buttons.A]: # Fully open-loop (Boost mode)
                 self.control_mode = 1
@@ -118,7 +118,7 @@ class Teleop(Node):
                 self.cmd_msg.linear.x = propulsion_user_input * self.max_velocity   # [m/s]
                 self.cmd_msg.angular.z = steering_user_input * self.cmd2rad
 
-        self.cmd_msg.linear.z = self.control_mode
+        self.cmd_msg.linear.z = float(self.control_mode)
         self.pub_cmd.publish(self.cmd_msg)
 
 
