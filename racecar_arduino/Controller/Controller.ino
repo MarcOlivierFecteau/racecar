@@ -99,8 +99,8 @@ long encoder_last_high = 0l;
 
 float velocity_now = 0.0f;
 float velocity_old = 0.0f;
-unsigned long velocity_time_now = 0ul;
-unsigned long velocity_time_old = 0ul;
+unsigned long velocity_time_now_millis = 0ul;
+unsigned long velocity_time_old_millis = 0ul;
 float velocity_dt = 0.0f;
 float velocity_error_integral = 0.0f;
 float velocity_error_differential = 0.0f;
@@ -238,8 +238,6 @@ void init_encoder() {
   SPI.transfer(0x88);                           // Write to MDR0
   SPI.transfer(0x03);                           // Configure to 4-byte mode
   digitalWrite(ENCODER_SLAVE_SELECT_PIN, HIGH); // Terminate SPI conversation
-
-  mavg_init(&moving_average);
 }
 
 long read_encoder() {
@@ -320,6 +318,7 @@ void set_pwm(int pwm) {
 }
 
 void controller(int dt_low) {
+  static float velocity_filtered_last = 0.0f;
   static float velocity_error_last = 0.0f;
 
   servo_pwm = servo2pwm(servo_ref);
@@ -330,14 +329,13 @@ void controller(int dt_low) {
   position_now = (float)encoder_now * TICK2METER;
 
   // Compute velocity time
-  velocity_time_now = millis();
-  velocity_dt = (float)(velocity_time_now - velocity_time_old) / 1000.0f;
+  velocity_time_now_millis = millis();
+  velocity_dt = (float)(velocity_time_now_millis - velocity_time_old_millis) / 1000.0f;
 
-  // float velocity_raw = (encoder_now - encoder_old) * TICK2METER / dt_low * 1000; // Default code
   float velocity_raw = (float)(encoder_now - encoder_old) * TICK2METER / velocity_dt;
-  mavg_add(&moving_average, velocity_raw);
-  float velocity_filtered = mavg_get_avg(&moving_average);
-  velocity_time_old = velocity_time_now;
+  float velocity_filtered = FILTER_RC * velocity_raw + (1 - FILTER_RC) * velocity_filtered_last;
+  velocity_time_old_millis = velocity_time_now_millis;
+  velocity_filtered_last = velocity_filtered;
 
   if(ctl_mode == 0) {
     // Zero output
