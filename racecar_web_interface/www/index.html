@@ -1,54 +1,62 @@
-<!doctype html>
-<html>
-<!-- 
-==References==
-Server-side:
-* http://docs.ros.org/indigo/api/roswww/html/
-* http://wiki.ros.org/web_video_server
-* http://wiki.ros.org/rosbridge_suite/Tutorials/RunningRosbridge
-
-Client-side:
-* http://wiki.ros.org/roslibjs/Tutorials/BasicRosFunctionality
-* https://getbootstrap.com/docs/4.0/getting-started/introduction/
-* https://getbootstrap.com/docs/4.0/layout/grid/
-* https://github.com/jeromeetienne/virtualjoystick.js
--->
-
+<!DOCTYPE html>
+<html lang="en-CA">
 <head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-    <!-- Bootstrap CSS -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/bootstrap.min.css">
     <link rel="stylesheet" href="css/dashboard.css">
-
-    <title>Laboratoire S5-GIF250</title>
-
+    <title>GIF250 | Racecar</title>
 </head>
-
 <body>
+    <header>
+        <nav class="navbar" id="navbarToggle">
+            <h2>Racecar</h2>
+            <form id="connect-form" action="/connect" method="post">
+                <button type="reset">Clear</button>
+                <input class="connect-field" id="remote-ipv4-field" name="ipv4" type="text" required pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$">
+                <button type="submit">Connect</button>
+            </form>
+            <div class="connection-status-container" style="background-color: #383838; border: 2px solid #181818; border-radius: 5px;">
+                <img class="connection-status-icon" src="media/images/red_circle.svg" width="12px" height="auto">
+                <span id="connection-status" style="color: #ff0000;">Disconnected</span>
+                <button id="disconnect-button" type="button" onclick="disconnectROS()" disabled>Disconnect</button>
+            </div>
+        </nav>
+    </header>
 
-  <!-- Menu BEGIN-->
-  <div class="collapse" id="navbarToggleExternalContent">
-    <div class="bg-dark p-4">
-      <h6 class="text-white h4">Configuration</h6>
-    </div>
-  </div>
+    <main class="dashboard">
+        <div class="camera-container">
+            <h1>Camera</h1>
+            <img class="camera-live-feed" id="camera-feed" width="640px" height="480px">
+        </div>
+        <div class="controls-container">
+            <div class="d-pad-container">
+                <h2>D-Pad</h2>
+                <p>Under Construction...</p>
+            </div>
+            <div class="virtual-controller-container">
+                <h2>Controller</h2>
+                <p>Under Construction...</p>
+            </div>
+        </div>
+    </main>
 
-<nav class="navbar navbar-dark bg-dark">
-  <div>
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggleExternalContent">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-  </div>
-</nav>
-<!-- Menu END-->
-
-<!-- Main layout BEGIN-->
-<div class="container-fluid">
-    
-  </div>
+    <footer>
+        <div class="credits">
+            <h6>S5-GRO-A24: Équipe 10</h5>
+            <ul class="members" style="display: flex; gap: 1em; list-style: none;">
+                <li><a href="https://github.com/MarcOlivierFecteau">Marc-Olivier Fecteau</a></li>
+                <li><a>Justine Landry</a></li>
+                <li><a>Loïc Legault</a></li>
+                <li><a>Félix Tremblay</a></li>
+            </ul>
+            <h6 style="display: flex; gap: 1em;">Github</h6>
+            <ul class="github-links" style="display: flex; gap: 1em; list-style: none;">
+                <li><a href="https://github.com/MarcOlivierFecteau/racecar">Our Project</a></li>
+                <li><a href="https://github.com/SherbyRobotics/racecar">Original Project</a></li>
+            </ul>
+        </div>
+    </footer>
 
     <!-- JavaScript, import frameworks -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
@@ -56,70 +64,7 @@ Client-side:
     <script src="js/popper.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
     <script src="js/virtualjoystick.js"></script>
-    <script src="js/roslib.min.js"></script> <!-- rosbridge -->
-    
-    <!-- Custom scripts -->
-    <script>
-        // Define some global variables
-        var rbServer = null;
-        var cmdVelTopic = null;
-
-        //Some initializations after the page has been shown
-        $(document).ready(function(){
-          document.getElementById("log").value = 'Default text\n'
-        });
-
-        // Define some functions
-        function connectROS() {
-
-            // This function connects to the rosbridge server running on the local computer on port 9090
-            rbServer = new ROSLIB.Ros({
-                url : 'ws://' + rosMasterIp + ':9090'
-            });
-
-            rbServer.on('connection', function() {
-                console.log('Connected to websocket server.');
-                
-                // These lines create a topic object as defined by roslibjs
-                cmdVelTopic = new ROSLIB.Topic({
-                    ros : rbServer,
-                    name : '/racecar/cmd_vel_abtr_2',
-                    messageType : 'geometry_msgs/Twist'
-                });
-            });
-
-            rbServer.on('error', function(error) {
-                console.log('Error connecting to websocket server: ', error);
-            });
-
-            rbServer.on('close', function() {
-                console.log('Connection to websocket server closed.');
-            });
-        }
-
-
-        // These lines create a message that conforms to the structure of the Twist defined in our ROS installation
-        // It initalizes all properties to zero. They will be set to appropriate values before we publish this message.
-        var twist = new ROSLIB.Message({
-            linear : {
-                x : 0.0,
-                y : 0.0,
-                z : 0.0
-            },
-            angular : {
-                x : 0.0,
-                y : 0.0,
-                z : 0.0
-            }
-        });
-
-        setInterval(function(){
-            if(cmdVelTopic != null) {
-              // Publish the message 
-              cmdVelTopic.publish(twist);
-            }
-        }, 200);
-        
-     </script>
+    <script src="js/roslib.min.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
