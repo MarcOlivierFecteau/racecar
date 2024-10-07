@@ -1,5 +1,7 @@
 body {
-  font-size: .875rem;
+  font-size: 100%;
+  background-color: #282c34;
+  color: #94a5b7;
 }
 
 /*
@@ -87,4 +89,42 @@ body {
 .form-control-dark:focus {
   border-color: transparent;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, .25);
+}
+
+/*
+ * Custom CSS
+ */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  columns: 2;
+  gap: 5em;
+  justify-content: center;
+  align-items: center;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #b14f48;
+}
+
+.connect-field {
+  background-color: #94a5b7;
+  align-content: center;
+}
+
+button {
+  background-color: #689b70;
+  border-radius: 6px;
+}
+
+.camera-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.controls-container {
+  display: flex;
+  gap: 5em;
 }
