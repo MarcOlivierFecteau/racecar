@@ -2,7 +2,7 @@
 Description: Arduino controller for the Slash platform (UdeS Racecar)
 Authors: SherbyRobotics, Marc-Olivier Fecteau, Justine Landry, Loïc Legault, Félix Tremblay
 Project Start: 2024-08-28
-Last Updated: 2024-09-25
+Last Updated: 2024-10-04
 */
 
 //==========================================================================//
@@ -24,7 +24,6 @@ Last Updated: 2024-09-25
 
 #ifdef IMU
 #include "MPU9250.h"
-MPU9250 imu(Wire, 0x68);
 #endif
 
 //==========================================================================//
@@ -36,7 +35,7 @@ static const uint8_t SERVO_PWM_PIN = 9;
 static const uint8_t DRIVE_PWM_PIN = 6; // H-bridge drive PWM
 static const uint8_t DRIVE_DIRECTION_PIN = 42;
 
-// static const float FILTER_RC = 0.1f;
+static const float FILTER_RC = 0.1f;
 static const float VELOCITY_KP = 9.0f;
 static const float VELOCITY_KI = 24.0f;
 static const float VELOCITY_KD = 0.0f;
@@ -71,6 +70,10 @@ static const float TICK2METER = 0.000002752; // TODO: adjust value
 //==========================================================================//
 // CONTROLLER VARIABLES
 //==========================================================================//
+
+#ifdef IMU
+MPU9250 imu(Wire, 0x68);
+#endif
 
 Servo steeringServo;
 
