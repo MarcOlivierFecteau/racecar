@@ -3,7 +3,7 @@ var cmdVelocityTopic = null;
 var remoteIPv4 = null;
 
 const config = {
-    serverBaseUrl: "http://127.0.1.1",
+    serverBaseUrl: "http://127.0.0.1",
     connectEndpoint: "/api/connect",
     cameraTopic: "/racecar/raspicam_node/image"
 };
@@ -21,9 +21,9 @@ var twist = new ROSLIB.Message({
     }
 });
 
-$(document).ready(() => {
-    console.log("[WEB INTERFACE] Ready.")
-})
+// $(document).ready(() => {
+//     console.log("[WEB INTERFACE] Ready.")
+// })
 
 function connectROS() {
     rosbridgeServer = new ROSLIB.Ros({
@@ -51,6 +51,7 @@ function connectROS() {
 
 function disconnectROS() {
     if(rosbridgeServer != null) {
+        document.getElementById("camera-feed").src = "media/images/camera-not-available.svg"
         rosbridgeServer.close();
     } else {
         console.warn("[ROSBridge] Server is already closed.");
@@ -72,41 +73,7 @@ function handleConnectForm(event) {
         return;
     }
 
-    const url = `${config.serverBaseUrl}${config.connectEndpoint}?ipv4=${encodeURIComponent(ipv4)}`;
-    console.log(`[FORM HANDLER] Attempting to connect to: ${url}`);
-
-    fetch(url, {
-        method: "GET",
-        headers: {
-            "Access-Control-Allow-Origin": "http://127.0.1.1/",
-            "Accept": "application/json",
-        },
-    })
-    .then(response => {
-        if(!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.text();
-    })
-    .then(text => {
-        try {
-            return JSON.parse(text);
-        } catch(e) {
-            console.error("[FORM HANDLER]", text);
-            throw new Error("The server response was not valid JSON.");
-        }
-    })
-    .then(data => {
-        remoteIPv4 = data.ipv4;
-        console.log("[FORM HANDLER] connected to" + remoteIPv4);
-        connectROS();
-        const cameraFeed = document.getElementById("camera-feed");
-        cameraFeed.src = `http://${remoteIPv4}":8080/stream?topic=${config.cameraTopic}`;
-    })
-    .catch(error => {
-        console.error("[FORM HANDLER]", error);
-        alert("An error occured while connecting.")
-    })
+    document.getElementById("camera-feed").src = "media/images/camera-not-available.svg";
 }
 
 document.getElementById("connect-form").addEventListener("submit", handleConnectForm);
