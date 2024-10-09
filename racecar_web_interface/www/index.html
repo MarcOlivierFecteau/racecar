@@ -11,7 +11,7 @@
     <header>
         <nav class="navbar" id="navbarToggle">
             <h2>Racecar</h2>
-            <form id="connect-form" action="/connect" method="post">
+            <form id="connect-form">
                 <button type="reset">Clear</button>
                 <input class="connect-field" id="remote-ipv4-field" name="ipv4" type="text" required pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$">
                 <button type="submit">Connect</button>
@@ -27,7 +27,7 @@
     <main class="dashboard">
         <div class="camera-container">
             <h1>Camera</h1>
-            <img class="camera-live-feed" id="camera-feed" width="640px" height="480px">
+            <img class="camera-live-feed" id="camera-feed" src="http://127.0.0.1:8080/stream?topic=/racecar/raspicam_node/image" width="1280px" height="720px">
         </div>
         <div class="controls-container">
             <div class="d-pad-container">
@@ -42,28 +42,26 @@
     </main>
 
     <footer>
-        <div class="credits">
-            <h6>S5-GRO-A24: Équipe 10</h5>
-            <ul class="members" style="display: flex; gap: 1em; list-style: none;">
-                <li><a href="https://github.com/MarcOlivierFecteau">Marc-Olivier Fecteau</a></li>
-                <li><a>Justine Landry</a></li>
-                <li><a>Loïc Legault</a></li>
-                <li><a>Félix Tremblay</a></li>
-            </ul>
-            <h6 style="display: flex; gap: 1em;">Github</h6>
-            <ul class="github-links" style="display: flex; gap: 1em; list-style: none;">
-                <li><a href="https://github.com/MarcOlivierFecteau/racecar">Our Project</a></li>
-                <li><a href="https://github.com/SherbyRobotics/racecar">Original Project</a></li>
-            </ul>
+        <div class="header-container">
+            <h6 class="section-title">S5-GRO-A24: Équipe 10</h5>
         </div>
+        <ul class="members">
+            <li><a href="https://github.com/MarcOlivierFecteau">Marc-Olivier Fecteau</a></li>
+            <li><a>Justine Landry</a></li>
+            <li><a>Loïc Legault</a></li>
+            <li><a>Félix Tremblay</a></li>
+        </ul>
+        <a class="github-link" href="https://github.com/MarcOlivierFecteau/racecar">
+            <img src="media/images/github-icon.svg" alt="Out Project" width="32px" height="32px">
+        </a>
     </footer>
 
     <!-- JavaScript, import frameworks -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="js/jquery-3.3.1.slim.min.js"></script>
-    <script src="js/popper.min.js"></script>
-    <script src="js/bootstrap.min.js"></script>
-    <script src="js/virtualjoystick.js"></script>
+    <!-- <script src="js/jquery-3.3.1.slim.min.js"></script> -->
+    <!-- <script src="js/popper.min.js"></script> -->
+    <!-- <script src="js/bootstrap.min.js"></script> -->
+    <!-- <script src="js/virtualjoystick.js"></script> -->
     <script src="js/roslib.min.js"></script>
     <script src="js/main.js"></script>
 </body>
