@@ -106,7 +106,9 @@ static float velocity_error_differential = 0.0f;
 static float position_error_integral = 0.0f;
 static float position_error_differential = 0.0f;
 
-static unsigned long time_last_com = 0; // COM watchdog
+static unsigned long time_now = 0ul;
+static unsigned long time_last_high = 0ul;
+static unsigned long time_last_com = 0ul; // COM watchdog
 
 static long encoder_last_high = 0;
 
@@ -387,6 +389,11 @@ void cmd_callback() {
   drive_reference = cmd_msg.data[1];  // [V] | [m/s] | [m]
   control_mode = (uint8_t)cmd_msg.data[2];
 
+  unsigned long dt = time_now - time_last_high;
+  sensors_callback(dt);
+  time_last_high = time_now;
+  encoder_last_high = encoder_now;
+
   time_last_com = millis();
 }
 
@@ -453,10 +460,11 @@ void setup() {
 
   delay(3000);
   steeringServo.write(PWM_ZERO_SERVO);
+  sensors_callback(1);
 }
 
 void loop() {
-  static unsigned long time_now, time_last_low, time_last_high = 0ul;
+  static unsigned long time_last_low = 0ul;
   static int new_msgs_IDs[MAX_NBS_MSG];
 
   time_now = millis();
@@ -488,13 +496,14 @@ void loop() {
     }
   }
 
-  unsigned long dt = time_now - time_last_high;
-  if (dt > TIME_PERIOD_HIGH) {
-    sensors_callback(dt);
+  // fd3b2e7: More stable Arduino com
+  // unsigned long dt = time_now - time_last_high;
+  // if (dt > TIME_PERIOD_HIGH) {
+  //   sensors_callback(dt);
 
-    time_last_high = time_now;
-    encoder_last_high = encoder_now;
-  }
+  //   time_last_high = time_now;
+  //   encoder_last_high = encoder_now;
+  // }
 }
 
 //==========================================================================//
