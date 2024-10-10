@@ -34,27 +34,37 @@
     <main>
         <div class="camera-container">
             <h1>Camera</h1>
-            <img class="camera-live-feed" id="camera-feed" src="media/images/camera-not-available.svg" width="640" height="480" style="max-width: 100%; height: auto;">
+            <img class="camera-live-feed" id="camera-feed" src="media/images/camera-not-available.svg" width="480" height="480" style="max-width: 100%; height: auto;">
         </div>
         <div class="controls-container">
             <div class="d-pad-container">
                 <h2>D-Pad</h2>
-                <div class="d-pad-button-container">
-                    <div class="d-pad-button center" id="emergency-stop">
-                        <object class="circle center" type="image/svg+xml" data="media/images/red_circle.svg"></object>
+                <div class="dpad-container">
+                    <div class="dpad center" id="emergency-stop">
+                        <svg width="64" height="64" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="32" cy="32" r="24" stroke="#e4e4ef" fill="red" stroke-width="2"/>
+                        </svg>
                     </div>
-                    <div class="d-pad-button up" id="up">
-                        <object class="triangle up" type="image/svg+xml" data="media/images/triangle.svg"></object>
+                    <div class="dpad up" id="up">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
+                            <polygon points="50 20, 80 80, 20 80" fill="#101010"/>
+                        </svg>
                     </div>
-                    <div class="d-pad-button left" id="left">
-                        <object class="triangle left" type="image/svg+xml" data="media/images/triangle.svg"></object>
+                    <div class="dpad left" id="left">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
+                            <polygon points="20 50, 80 80, 80 20" fill="#101010"/>
+                        </svg>
                     </div>
-                    <div class="d-pad-button down" id="down">
-                        <object class="triangle down" type="image/svg+xml" data="media/images/triangle.svg"></object>
+                    <div class="dpad down" id="down">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
+                            <polygon points="20 20, 80 20, 50 80" fill="#101010"/>
+                        </svg>
                     </div>
-                    <div class="d-pad-button right" id="right">
-                        <object class="triangle right" type="image/svg+xml" data="media/images/triangle.svg"></object>
-                    </div>
+                    <div class="dpad right" id="right">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
+                            <polygon points="20 20, 20 80, 80 50" fill="#101010"/>
+                        </svg>
+                    </div>  
                 </div>
             </div>
             <div class="twist-display-container">

@@ -98,6 +98,11 @@ input {
 /*
  * D-Pad
  */
+ 
+object {
+  cursor: pointer;
+  user-select: none;
+}
 
 .d-pad-container {
   display: flex;
@@ -105,14 +110,14 @@ input {
   align-items: center;
 }
 
-.d-pad-button-container {
+.dpad-container {
   display: grid;
   grid-template-columns: repeat(3, 64px);
   grid-template-rows: repeat(3, 64px);
   gap: 0.5em;
 }
 
-.d-pad-button {
+.dpad {
   background-color: #484c54;
   color: white;
   text-align: center;
@@ -122,40 +127,29 @@ input {
   user-select: none;
 }
 
-.d-pad-button:hover {
+.dpad:hover,
+.dpad:hover > object {
   background-color: #585858;
 }
 
-.d-pad-button.center {
+.dpad.center {
   grid-area: 2 / 2;
 }
 
-.d-pad-button.up {
+.dpad.up {
   grid-area: 1 / 2;
 }
 
-.d-pad-button.left {
+.dpad.left {
   grid-area: 2 / 1;
 }
 
-.d-pad-button.down {
+.dpad.down {
   grid-area: 3 / 2;
 }
 
-.d-pad-button.right {
+.dpad.right {
   grid-area: 2 / 3;
-}
-
-.triangle.left {
-  transform: rotateZ(-90deg);
-}
-
-.triangle.down {
-  transform: rotateZ(180deg);
-}
-
-.triangle.right {
-  transform: rotateZ(90deg);
 }
 
 /* 

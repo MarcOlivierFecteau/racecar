@@ -14,7 +14,7 @@ var twist = new ROSLIB.Message({
     linear: {
         x: 0.0,
         y: 0.0,
-        z: 0.0
+        z: 2.0
     },
     angular: {
         x: 0.0,
@@ -35,7 +35,9 @@ function connectROS() {
         connectionStatus.innerHTML = remoteIPv4;
         document.getElementById("connection-status-icon").src = "media/images/green_circle.svg";
         document.getElementById("disconnect-button").removeAttribute("disabled");
-        document.getElementById("camera-feed").src = `http://${remoteIPv4}:8080/stream?topic=${config.cameraTopic}`;
+        const cameraFeed = document.getElementById("camera-feed");
+        cameraFeed.setAttribute("width", "640");
+        cameraFeed.src = `http://${remoteIPv4}:8080/stream?topic=${config.cameraTopic}`;
 
         cmdVelocityTopic = new ROSLIB.Topic({
             ros: rosbridgeServer,
@@ -67,7 +69,9 @@ function connectROS() {
 function disconnectROS() {
     if(rosbridgeServer != null) {
         rosbridgeServer.close();
-        document.getElementById("camera-feed").src = "media/images/camera-not-available.svg";
+        const cameraFeed = document.getElementById("camera-feed");
+        cameraFeed.setAttribute("width", "480");
+        cameraFeed.src = "media/images/camera-not-available.svg";
     } else {
         console.warn("[ROSBridge] Server is already closed.");
     }
@@ -199,6 +203,84 @@ window.addEventListener("keydown", (event) => {
         event.preventDefault();
     }
 }, false);
+
+/*
+ *  Mouse events
+ */
+
+emergencyStop.addEventListener("mousedown", () => {
+    twist.linear.x = 0.0;
+    twist.angular.z = 0.0;
+    inputsDisabled = true;
+    emergencyStop.style.backgroundColor = "#dd0000dd";
+    for(let element of [dPadUp, dPadLeft, dPadDown, dPadRight]) {
+        element.removeAttribute("style");
+    }
+});
+emergencyStop.addEventListener("mouseup", () => {
+    inputsDisabled = false;
+    emergencyStop.removeAttribute("style");
+});
+emergencyStop.addEventListener("mouseleave", () => {
+    inputsDisabled = false;
+    emergencyStop.removeAttribute("style");
+});
+
+dPadUp.addEventListener("mousedown", () => {
+    if(inputsDisabled) return;
+    twist.linear.x = 2.5;
+    dPadUp.style.backgroundColor = "#686c74";
+});
+dPadUp.addEventListener("mouseup", () => {
+    twist.linear.x = 0.0;
+    dPadUp.removeAttribute("style");
+});
+dPadUp.addEventListener("mouseleave", () => {
+    twist.linear.x = 0.0;
+    dPadUp.removeAttribute("style");
+});
+
+dPadLeft.addEventListener("mousedown", () => {
+    if(inputsDisabled) return;
+    twist.angular.z = MAX_STEERING_INPUT;
+    dPadLeft.style.backgroundColor = "#686c74";
+});
+dPadLeft.addEventListener("mouseup", () => {
+    twist.angular.z = 0.0;
+    dPadLeft.removeAttribute("style");
+});
+dPadLeft.addEventListener("mouseleave", () => {
+    twist.angular.z = 0.0;
+    dPadLeft.removeAttribute("style");
+});
+
+dPadDown.addEventListener("mousedown", () => {
+    if(inputsDisabled) return;
+    twist.linear.x = -2.5;
+    dPadDown.style.backgroundColor = "#686c74";
+});
+dPadDown.addEventListener("mouseup", () => {
+    twist.linear.x = 0.0;
+    dPadDown.removeAttribute("style");
+});
+dPadDown.addEventListener("mouseleave", () => {
+    twist.linear.x = 0.0;
+    dPadDown.removeAttribute("style");
+});
+
+dPadRight.addEventListener("mousedown", () => {
+    if(inputsDisabled) return;
+    twist.angular.z = -MAX_STEERING_INPUT;
+    dPadRight.style.backgroundColor = "#686c74";
+});
+dPadRight.addEventListener("mouseup", () => {
+    twist.angular.z = 0.0;
+    dPadRight.removeAttribute("style");
+});
+dPadRight.addEventListener("mouseleave", () => {
+    twist.angular.z = 0.0;
+    dPadRight.removeAttribute("style");
+});
 
 const twistLinearX = document.getElementById("twist-linear-x");
 const twistLinearY = document.getElementById("twist-linear-y");
