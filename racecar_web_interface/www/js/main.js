@@ -1,5 +1,9 @@
+const debug = false; // User-defined constant for debug information in console
+const MAX_STEERING_INPUT = 40.0 * 3.141592 / 180.0;
+
 var rosbridgeServer = null;
 var remoteIPv4 = null;
+var cmdVelocityTopic = null;
 
 const config = {
     serverBaseUrl: "http://127.0.0.1",
@@ -38,6 +42,7 @@ function connectROS() {
             name: "/racecar/cmd_vel",
             messageType: "/geometry_msgs/Twist"
         });
+        cmdVelocityTopic.advertise();
     });
 
     rosbridgeServer.on("error", (error) => {
@@ -61,11 +66,13 @@ function connectROS() {
 
 function disconnectROS() {
     if(rosbridgeServer != null) {
-        document.getElementById("camera-feed").src = "media/images/camera-not-available.svg"
         rosbridgeServer.close();
+        document.getElementById("camera-feed").src = "media/images/camera-not-available.svg";
     } else {
         console.warn("[ROSBridge] Server is already closed.");
     }
+    cmdVelocityTopic = null;
+    if(debug) {console.log("cmdVelocityTopic set to null.");}
 }
 
 function validateIPv4(ipv4) {
@@ -86,6 +93,9 @@ function handleConnectForm(event) {
     if(!validateIPv4(ipv4)) {
         alert("Enter a valid IPv4 address.");
         return;
+    } else if(rosbridgeServer != null && rosbridgeServer.isConnected) {
+        alert("You MUST disconnect before connecting to another server.")
+        return;
     } else {
         remoteIPv4 = ipv4;
     }
@@ -99,53 +109,117 @@ document.getElementById("connect-form").addEventListener("submit", handleConnect
  * D-Pad section
  */
 
+var inputsDisabled = false;
+
+const emergencyStop = document.getElementById("emergency-stop");
 const dPadUp = document.getElementById("up");
 const dPadLeft = document.getElementById("left");
 const dPadDown = document.getElementById("down");
 const dPadRight = document.getElementById("right");
 
 document.addEventListener("keydown", (event) => {
+    if(event.key == " ") {
+        twist.linear.x = 0.0;
+        twist.angular.z = 0.0;
+        inputsDisabled = true;
+        emergencyStop.style.backgroundColor = "#dd0000dd";
+        for(let element of [dPadUp, dPadLeft, dPadDown, dPadRight]) {
+            element.removeAttribute("style");
+        }
+        if(debug) {console.log("You pressed the emergency stop.")}
+        return;
+    } else if(inputsDisabled) return;
     switch(event.key) {
+        case " ":
         case "ArrowUp":
         case "w":
-            dPadUp.style.backgroundColor = "#585858";
-            console.log(`You pressed up.`);
+            twist.linear.x = 2.5;
+            dPadUp.style.backgroundColor = "#686c74";
+            if(debug) {console.log("You pressed up.");}
             break;
         case "ArrowLeft":
         case "a":
-            dPadLeft.style.backgroundColor = "#585858";
-            console.log(`You pressed left.`);
+            twist.angular.z = MAX_STEERING_INPUT;
+            dPadLeft.style.backgroundColor = "#686c74";
+            if(debug) {console.log("You pressed left.");}
             break;
         case "ArrowDown":
         case "s":
-            dPadDown.style.backgroundColor = "#585858";
-            console.log(`You pressed down.`);
+            twist.linear.x = -2.5;
+            dPadDown.style.backgroundColor = "#686c74";
+            if(debug) {console.log("You pressed down.");}
             break;
         case "ArrowRight":
         case "d":
-            dPadRight.style.backgroundColor = "#585858";
-            console.log(`You pressed right.`);
+            twist.angular.z = -MAX_STEERING_INPUT;
+            dPadRight.style.backgroundColor = "#686c74";
+            if(debug) {console.log("You pressed right.");}
             break;
     }
 });
 
 document.addEventListener("keyup", (event) => {
+    if(event.key == " ") {
+        inputsDisabled = false;
+        emergencyStop.removeAttribute("style");
+        if(debug) {console.log("You released emergency stop.");}
+        return;
+    } else if(inputsDisabled) return;
     switch(event.key) {
         case "ArrowUp":
         case "w":
-            dPadUp.style.backgroundColor = "#484848";
+            twist.linear.x = 0.0;
+            dPadUp.removeAttribute("style");
+            if(debug) {console.log("You released up.");}
             break;
         case "ArrowLeft":
         case "a":
-            dPadLeft.style.backgroundColor = "#484848";
+            twist.angular.z = 0.0;
+            dPadLeft.removeAttribute("style");
+            if(debug) {console.log("You released left.");}
             break;
         case "ArrowDown":
         case "s":
-            dPadDown.style.backgroundColor = "#484848";
+            twist.linear.x = 0.0;
+            dPadDown.removeAttribute("style");
+            if(debug) {console.log("You released down.");}
             break;
         case "ArrowRight":
         case "d":
-            dPadRight.style.backgroundColor = "#484848";
+            twist.angular.z = 0.0;
+            dPadRight.removeAttribute("style");
+            if(debug) {console.log("You released right.");}
             break;
     }
 });
+
+// Disable scrolling with arrow keys and space
+window.addEventListener("keydown", (event) => {
+    if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(event.code) > -1) {
+        event.preventDefault();
+    }
+}, false);
+
+const twistLinearX = document.getElementById("twist-linear-x");
+const twistLinearY = document.getElementById("twist-linear-y");
+const twistLinearZ = document.getElementById("twist-linear-z");
+const twistAngularX = document.getElementById("twist-angular-x");
+const twistAngularY = document.getElementById("twist-angular-y");
+const twistAngularZ = document.getElementById("twist-angular-z");
+
+function roundTwist(x) {
+    return Number.parseFloat(x).toFixed(3);
+}
+
+setInterval(() => {
+    if(cmdVelocityTopic != null) {
+        twistLinearX.innerHTML = `X: ${roundTwist(twist.linear.x)}`;
+        twistLinearY.innerHTML = `Y: ${roundTwist(twist.linear.y)}`;
+        twistLinearZ.innerHTML = `Z: ${roundTwist(twist.linear.z)}`;
+        twistAngularX.innerHTML = `X: ${roundTwist(twist.angular.x)}`;
+        twistAngularY.innerHTML = `Y: ${roundTwist(twist.angular.y)}`;
+        twistAngularZ.innerHTML = `Z: ${roundTwist(twist.angular.z)}`;
+        cmdVelocityTopic.publish(twist);
+        if(debug) {console.log(twist);}
+    }
+}, 100);

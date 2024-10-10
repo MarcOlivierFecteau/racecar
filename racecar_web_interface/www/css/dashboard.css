@@ -82,6 +82,19 @@ input {
   gap: 5em;
 }
 
+.twist-display-container {
+  background-color: #282828;
+  padding: 0em 0.5em;
+  border: 2px solid #101010;
+  border-radius: 6px;
+  min-width: 125px;
+}
+
+.twist-message {
+  color: #e4e4ef;
+  list-style: none;
+}
+
 /*
  * D-Pad
  */
@@ -100,7 +113,7 @@ input {
 }
 
 .d-pad-button {
-  background-color: #484848;
+  background-color: #484c54;
   color: white;
   text-align: center;
   align-content: center;
@@ -111,6 +124,26 @@ input {
 
 .d-pad-button:hover {
   background-color: #585858;
+}
+
+.d-pad-button.center {
+  grid-area: 2 / 2;
+}
+
+.d-pad-button.up {
+  grid-area: 1 / 2;
+}
+
+.d-pad-button.left {
+  grid-area: 2 / 1;
+}
+
+.d-pad-button.down {
+  grid-area: 3 / 2;
+}
+
+.d-pad-button.right {
+  grid-area: 2 / 3;
 }
 
 .triangle.left {

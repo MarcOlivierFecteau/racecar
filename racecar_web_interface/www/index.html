@@ -40,26 +40,37 @@
             <div class="d-pad-container">
                 <h2>D-Pad</h2>
                 <div class="d-pad-button-container">
-                    <div class="d-pad-button center" id="center" style="grid-area: 2/2;">
+                    <div class="d-pad-button center" id="emergency-stop">
                         <object class="circle center" type="image/svg+xml" data="media/images/red_circle.svg"></object>
                     </div>
-                    <div class="d-pad-button up" id="up" style="grid-area: 1 / 2;">
+                    <div class="d-pad-button up" id="up">
                         <object class="triangle up" type="image/svg+xml" data="media/images/triangle.svg"></object>
                     </div>
-                    <div class="d-pad-button left" id="left" style="grid-area: 2 / 1;">
+                    <div class="d-pad-button left" id="left">
                         <object class="triangle left" type="image/svg+xml" data="media/images/triangle.svg"></object>
                     </div>
-                    <div class="d-pad-button down" id="down" style="grid-area: 3 / 2;">
+                    <div class="d-pad-button down" id="down">
                         <object class="triangle down" type="image/svg+xml" data="media/images/triangle.svg"></object>
                     </div>
-                    <div class="d-pad-button right" id="right" style="grid-area: 2 / 3;">
+                    <div class="d-pad-button right" id="right">
                         <object class="triangle right" type="image/svg+xml" data="media/images/triangle.svg"></object>
                     </div>
                 </div>
             </div>
-            <div class="virtual-controller-container">
-                <h2>Controller</h2>
-                <p>Under Construction...</p>
+            <div class="twist-display-container">
+                <h2 style="text-decoration-line: underline;">Twist</h2>
+                <h5>Linear</h5>
+                <ul class="twist-message">
+                    <li id="twist-linear-x">x: N/A</li>
+                    <li id="twist-linear-y">y: N/A</li>
+                    <li id="twist-linear-z">z: N/A</li>
+                </ul>
+                <h5>Angular</h5>
+                <ul class="twist-message">
+                    <li id="twist-angular-x">x: N/A</li>
+                    <li id="twist-angular-y">y: N/A</li>
+                    <li id="twist-angular-z">z: N/A</li>
+                </ul>
             </div>
         </div>
     </main>
