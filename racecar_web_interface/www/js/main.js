@@ -1,27 +1,14 @@
-const debug = false; // User-defined constant for debug information in console
+const debug = false; // User-defined: for debug information in console
 const MAX_STEERING_INPUT = 40.0 * 3.141592 / 180.0;
+const cameraTopic = "/racecar/raspicam_node/image";
 
 var rosbridgeServer = null;
 var remoteIPv4 = null;
 var cmdVelocityTopic = null;
 
-const config = {
-    serverBaseUrl: "http://127.0.0.1",
-    cameraTopic: "/racecar/raspicam_node/image",
-};
-
-var twist = new ROSLIB.Message({
-    linear: {
-        x: 0.0,
-        y: 0.0,
-        z: 2.0
-    },
-    angular: {
-        x: 0.0,
-        y: 0.0,
-        z: 0.0
-    }
-});
+/* ================================================================================================================
+ * rosbridge / roslibjs Section
+ * ================================================================================================================ */
 
 function connectROS() {
     rosbridgeServer = new ROSLIB.Ros({
@@ -30,18 +17,21 @@ function connectROS() {
 
     rosbridgeServer.on("connection", () => {
         console.log("[ROSBridge] Connected to WebSocket server.");
+
         const connectionStatus = document.getElementById("connection-status");
         connectionStatus.style.color = "#00ff00";
         connectionStatus.innerHTML = remoteIPv4;
+
         document.getElementById("connection-status-icon").src = "media/images/green_circle.svg";
         document.getElementById("disconnect-button").removeAttribute("disabled");
+        
         const cameraFeed = document.getElementById("camera-feed");
         cameraFeed.setAttribute("width", "640");
-        cameraFeed.src = `http://${remoteIPv4}:8080/stream?topic=${config.cameraTopic}`;
+        cameraFeed.src = `http://${remoteIPv4}:8080/stream?topic=${cameraTopic}`;
 
         cmdVelocityTopic = new ROSLIB.Topic({
             ros: rosbridgeServer,
-            name: "/racecar/cmd_vel",
+            name: "/racecar/prop_cmd",
             messageType: "/geometry_msgs/Twist"
         });
         cmdVelocityTopic.advertise();
@@ -79,6 +69,51 @@ function disconnectROS() {
     if(debug) {console.log("cmdVelocityTopic set to null.");}
 }
 
+/* ================================================================================================================
+ * Twist (message) Section
+ * ================================================================================================================ */
+
+var twist = new ROSLIB.Message({
+    linear: {
+        x: 0.0,
+        y: 0.0,
+        z: 2.0
+    },
+    angular: {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0
+    }
+});
+
+const twistLinearX = document.getElementById("twist-linear-x");
+const twistLinearY = document.getElementById("twist-linear-y");
+const twistLinearZ = document.getElementById("twist-linear-z");
+const twistAngularX = document.getElementById("twist-angular-x");
+const twistAngularY = document.getElementById("twist-angular-y");
+const twistAngularZ = document.getElementById("twist-angular-z");
+
+function roundTwist(x) {
+    return Number.parseFloat(x).toFixed(3);
+}
+
+setInterval(() => {
+    if(cmdVelocityTopic != null) {
+        twistLinearX.innerHTML = `X: ${roundTwist(twist.linear.x)}`;
+        twistLinearY.innerHTML = `Y: ${roundTwist(twist.linear.y)}`;
+        twistLinearZ.innerHTML = `Z: ${roundTwist(twist.linear.z)}`;
+        twistAngularX.innerHTML = `X: ${roundTwist(twist.angular.x)}`;
+        twistAngularY.innerHTML = `Y: ${roundTwist(twist.angular.y)}`;
+        twistAngularZ.innerHTML = `Z: ${roundTwist(twist.angular.z)}`;
+        cmdVelocityTopic.publish(twist);
+        if(debug) {console.log(twist);}
+    }
+}, 200);
+
+/* ================================================================================================================
+ * Form Handler Section
+ * ================================================================================================================ */
+
 function validateIPv4(ipv4) {
     const ipv4Pattern = new RegExp("^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$");
     return ipv4Pattern.test(ipv4);
@@ -109,11 +144,9 @@ function handleConnectForm(event) {
 
 document.getElementById("connect-form").addEventListener("submit", handleConnectForm);
 
-/*
- * D-Pad section
- */
-
-var inputsDisabled = false;
+/* ================================================================================================================
+ * (Ergonomic) Controls Section
+ * ================================================================================================================ */
 
 const emergencyStop = document.getElementById("emergency-stop");
 const dPadUp = document.getElementById("up");
@@ -121,16 +154,39 @@ const dPadLeft = document.getElementById("left");
 const dPadDown = document.getElementById("down");
 const dPadRight = document.getElementById("right");
 
+var inputsDisabled = false;
+
+function stopAll() {
+    twist.linear.x = 0.0;
+    twist.angular.z = 0.0;
+    inputsDisabled = true;
+    emergencyStop.style.backgroundColor = "#dd0000dd";
+    for(let element of [dPadUp, dPadLeft, dPadDown, dPadRight]) {
+        element.removeAttribute("style");
+    }
+    if(debug) {console.log("Emergency stop pressed.");}
+}
+
+function resetInputs() {
+    inputsDisabled = false;
+    emergencyStop.removeAttribute("style");
+    if(debug) {console.log("Emergency stop released.");}
+}
+
+/* ========================================================================
+ * Keyboard Events
+ * ======================================================================== */
+
+// Disable scrolling with arrow keys and space
+window.addEventListener("keydown", (event) => {
+    if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(event.code) > -1) {
+        event.preventDefault();
+    }
+}, false);
+
 document.addEventListener("keydown", (event) => {
     if(event.key == " ") {
-        twist.linear.x = 0.0;
-        twist.angular.z = 0.0;
-        inputsDisabled = true;
-        emergencyStop.style.backgroundColor = "#dd0000dd";
-        for(let element of [dPadUp, dPadLeft, dPadDown, dPadRight]) {
-            element.removeAttribute("style");
-        }
-        if(debug) {console.log("You pressed the emergency stop.")}
+        stopAll();
         return;
     } else if(inputsDisabled) return;
     switch(event.key) {
@@ -164,9 +220,7 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("keyup", (event) => {
     if(event.key == " ") {
-        inputsDisabled = false;
-        emergencyStop.removeAttribute("style");
-        if(debug) {console.log("You released emergency stop.");}
+        resetInputs();
         return;
     } else if(inputsDisabled) return;
     switch(event.key) {
@@ -197,33 +251,18 @@ document.addEventListener("keyup", (event) => {
     }
 });
 
-// Disable scrolling with arrow keys and space
-window.addEventListener("keydown", (event) => {
-    if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(event.code) > -1) {
-        event.preventDefault();
-    }
-}, false);
-
-/*
- *  Mouse events
- */
+/* ========================================================================
+ * Mouse Events
+ * ======================================================================== */
 
 emergencyStop.addEventListener("mousedown", () => {
-    twist.linear.x = 0.0;
-    twist.angular.z = 0.0;
-    inputsDisabled = true;
-    emergencyStop.style.backgroundColor = "#dd0000dd";
-    for(let element of [dPadUp, dPadLeft, dPadDown, dPadRight]) {
-        element.removeAttribute("style");
-    }
+    stopAll();
 });
 emergencyStop.addEventListener("mouseup", () => {
-    inputsDisabled = false;
-    emergencyStop.removeAttribute("style");
+    resetInputs();
 });
 emergencyStop.addEventListener("mouseleave", () => {
-    inputsDisabled = false;
-    emergencyStop.removeAttribute("style");
+    resetInputs();
 });
 
 dPadUp.addEventListener("mousedown", () => {
@@ -282,26 +321,49 @@ dPadRight.addEventListener("mouseleave", () => {
     dPadRight.removeAttribute("style");
 });
 
-const twistLinearX = document.getElementById("twist-linear-x");
-const twistLinearY = document.getElementById("twist-linear-y");
-const twistLinearZ = document.getElementById("twist-linear-z");
-const twistAngularX = document.getElementById("twist-angular-x");
-const twistAngularY = document.getElementById("twist-angular-y");
-const twistAngularZ = document.getElementById("twist-angular-z");
+/* ========================================================================
+ * Touch Events
+ * ======================================================================== */
 
-function roundTwist(x) {
-    return Number.parseFloat(x).toFixed(3);
-}
+emergencyStop.addEventListener("touchstart", () => {
+    stopAll();
+});
+emergencyStop.addEventListener("touchend", () => {
+    resetInputs();
+});
 
-setInterval(() => {
-    if(cmdVelocityTopic != null) {
-        twistLinearX.innerHTML = `X: ${roundTwist(twist.linear.x)}`;
-        twistLinearY.innerHTML = `Y: ${roundTwist(twist.linear.y)}`;
-        twistLinearZ.innerHTML = `Z: ${roundTwist(twist.linear.z)}`;
-        twistAngularX.innerHTML = `X: ${roundTwist(twist.angular.x)}`;
-        twistAngularY.innerHTML = `Y: ${roundTwist(twist.angular.y)}`;
-        twistAngularZ.innerHTML = `Z: ${roundTwist(twist.angular.z)}`;
-        cmdVelocityTopic.publish(twist);
-        if(debug) {console.log(twist);}
-    }
-}, 100);
+dPadUp.addEventListener("touchstart", () => {
+    twist.linear.x = 2.5;
+    dPadUp.style.backgroundColor = "#686c74";
+});
+dPadUp.addEventListener("touchend", () => {
+    twist.linear.x = 0;
+    dPadUp.removeAttribute("style");
+});
+
+dPadLeft.addEventListener("touchstart", () => {
+    twist.angular.z = MAX_STEERING_INPUT;
+    dPadLeft.style.backgroundColor = "#686c74";
+});
+dPadLeft.addEventListener("touchend", () => {
+    twist.angular.z = 0;
+    dPadLeft.removeAttribute("style");
+});
+
+dPadDown.addEventListener("touchstart", () => {
+    twist.linear.x = -2.5;
+    dPadDown.style.backgroundColor = "#686c74";
+});
+dPadDown.addEventListener("touchend", () => {
+    twist.linear.x = 0;
+    dPadDown.removeAttribute("style");
+});
+
+dPadRight.addEventListener("touchstart", () => {
+    twist.angular.z = -MAX_STEERING_INPUT;
+    dPadRight.style.backgroundColor = "#686c74";
+});
+dPadRight.addEventListener("touchend", () => {
+    twist.angular.z = 0;
+    dPadRight.removeAttribute("style");
+});
