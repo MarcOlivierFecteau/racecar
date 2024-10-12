@@ -14,6 +14,57 @@ body {
 }
 
 /*
+ * Navbar
+ */
+
+.navbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.navbar h2 {
+  margin: 0;
+}
+
+form {
+  display: flex;
+  background-color: #383838;
+  border: 3px solid #181818;
+  border-radius: 6px;
+  gap: 0.25em;
+}
+
+input {
+  padding: 0px;
+  margin: 0px;
+  border-radius: 6px;
+}
+
+.connect-field {
+  background-color: #94a5b7;
+  text-align: center;
+}
+
+.connection-status-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5em;
+  background-color: #383838;
+  padding-left: 2px;
+  border: 3px solid #181818;
+  border-radius: 20px 6px 6px 20px;
+}
+
+@media (max-width: 700px) {
+  .navbar {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/*
  * Dashboard
  */
 
@@ -41,36 +92,6 @@ button {
   border-radius: 6px;
 }
 
-form {
-  display: flex;
-  background-color: #383838;
-  border: 3px solid #181818;
-  border-radius: 6px;
-  gap: 0.5em;
-}
-
-input {
-  padding: 0px;
-  margin: 0px;
-  border-radius: 6px;
-}
-
-.connect-field {
-  background-color: #94a5b7;
-  text-align: center;
-}
-
-.connection-status-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.5em;
-  background-color: #383838;
-  padding-left: 2px;
-  border: 3px solid #181818;
-  border-radius: 20px 6px 6px 20px;
-}
-
 .camera-container {
   display: flex;
   flex-direction: column;
@@ -79,7 +100,8 @@ input {
 
 .controls-container {
   display: flex;
-  gap: 5em;
+  justify-content: space-between;
+  padding: 1em;
 }
 
 .twist-display-container {
@@ -87,12 +109,13 @@ input {
   padding: 0em 0.5em;
   border: 2px solid #101010;
   border-radius: 6px;
-  min-width: 125px;
+  min-width: 75px;
 }
 
 .twist-message {
   color: #e4e4ef;
   list-style: none;
+  padding: 0;
 }
 
 /*
@@ -104,13 +127,14 @@ object {
   user-select: none;
 }
 
-.d-pad-container {
+.dpad-container {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-right: 2em;
 }
 
-.dpad-container {
+.dpad-wrapper {
   display: grid;
   grid-template-columns: repeat(3, 64px);
   grid-template-rows: repeat(3, 64px);
@@ -153,8 +177,8 @@ object {
 }
 
 /* 
- * CSS for footer
- */
+* CSS for footer
+*/
 
 footer {
   display: flex;
@@ -175,4 +199,21 @@ footer {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+
+@media (max-width: 700px) {
+  .controls-container {
+    flex-direction: column;
+  }
+  .dpad-container {
+    padding-right: 0em;
+    padding-bottom: 2em;
+  }
+  .twist-display-container {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    gap: 0.5em;
+    min-width: 350px;
+  }
 }
