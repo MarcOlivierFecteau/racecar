@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-import rclpy
-import math
+import rclpy, math
 from geometry_msgs.msg import Twist
 from ackermann_msgs.msg import AckermannDriveStamped
 

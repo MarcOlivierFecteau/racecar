@@ -6,7 +6,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 import xacro
-# import yaml
+import yaml
 
 def launch_setup(context, *args, **kwargs):
     # Declare launch arguments
@@ -55,7 +55,7 @@ def launch_setup(context, *args, **kwargs):
 
     cmd_vel_arb = Node(
         package='racecar_bringup',
-        executable='cmd_vel_arb',
+        executable='cmd_vel_arbitration',
         remappings=[(f'/{prefix}/cmd_vel_output', f'/{prefix}/cmd_vel')],
         namespace=prefix
     )
@@ -73,7 +73,7 @@ def launch_setup(context, *args, **kwargs):
 
     teleop = Node(
             package='racecar_teleop',
-            executable='racecar_teleop',
+            executable='slash_teleop',
             name='racecar_teleop',
             remappings=[(f'/{prefix}/ctl_ref', f'/{prefix}/cmd_vel_abtr_0')],
             namespace=prefix   

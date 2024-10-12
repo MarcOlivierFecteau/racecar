@@ -1,13 +1,12 @@
-#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import Pose, Twist, Transform, TransformStamped
 from sensor_msgs.msg import JointState
-# from std_msgs.msg import Header
-# import numpy as np
+from std_msgs.msg import Header
+import numpy as np
 import math
-# from threading import Thread, Lock
+from threading import Thread, Lock
 from tf_transformations import quaternion_from_euler
 
 class OdometryNode(Node):
@@ -31,8 +30,8 @@ class OdometryNode(Node):
         self.tf_pub = self.create_publisher(TransformStamped, 'tf', 1)
         self.sub_robot_pose_update = self.create_subscription(JointState, 'joint_states', self.sub_robot_pose_update_callback, 1)
 
-    def yaw_from_quaternion(self, quat):
-        (_, _, yaw) = quaternion_from_euler(quat.x, quat.y, quat.z, quat.w)
+    def quaternion_to_yaw(self, quat):
+        (roll, pitch, yaw) = quaternion_from_euler(quat.x, quat.y, quat.z, quat.w)
         return yaw
 
     def sub_robot_pose_update_callback(self, msg):
