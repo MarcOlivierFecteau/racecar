@@ -3,7 +3,8 @@ const MAX_STEERING_INPUT = 40.0 * 3.141592 / 180.0;
 const cameraTopic = "/racecar/raspicam_node/image";
 
 var rosbridgeServer = null;
-var remoteIPv4 = null;
+var remoteUser = localStorage.getItem("remoteUser");
+var remoteIPv4 = localStorage.getItem("remoteIPv4");
 var cmdVelocityTopic = null;
 
 /* ================================================================================================================
@@ -20,14 +21,11 @@ function connectROS() {
 
         const connectionStatus = document.getElementById("connection-status");
         connectionStatus.style.color = "#00ff00";
-        connectionStatus.innerHTML = remoteIPv4;
-
-        document.getElementById("dashboard").removeAttribute("style");
-        document.getElementById("connect-form").style.display = "none";
+        connectionStatus.innerHTML = `${remoteUser} @ ${remoteIPv4}`;
 
         document.getElementById("connection-status-icon").src = "media/images/green_circle.svg";
         document.getElementById("disconnect-button").removeAttribute("disabled");
-        
+
         const cameraFeed = document.getElementById("camera-feed");
         cameraFeed.setAttribute("width", "640");
         cameraFeed.src = `http://${remoteIPv4}:8080/stream?topic=${cameraTopic}`;
@@ -50,8 +48,7 @@ function connectROS() {
         document.getElementById("connection-status-icon").src = "media/images/red_circle.svg";
         document.getElementById("disconnect-button").setAttribute("disabled", "yes");
 
-        document.getElementById("dashboard").style.display = "none";
-        document.getElementById("connect-form").removeAttribute("style");
+        window.location.href = "connection.html";
     });
 
     rosbridgeServer.on("close", () => {
@@ -64,8 +61,7 @@ function connectROS() {
         document.getElementById("connection-status-icon").src = "media/images/red_circle.svg";
         document.getElementById("disconnect-button").setAttribute("disabled", "yes");
 
-        document.getElementById("dashboard").style.display = "none";
-        document.getElementById("connect-form").removeAttribute("style");
+        window.location.href = "connection.html";
     });
 }
 
@@ -122,39 +118,6 @@ setInterval(() => {
         if(debug) {console.log(twist);}
     }
 }, 200);
-
-/* ================================================================================================================
- * Form Handler Section
- * ================================================================================================================ */
-
-function validateIPv4(ipv4) {
-    const ipv4Pattern = new RegExp("^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$");
-    return ipv4Pattern.test(ipv4);
-}
-
-function handleConnectForm(event) {
-    event.preventDefault();
-
-    if(rosbridgeServer != null && rosbridgeServer.isConnected) {
-        alert("You MUST disconnect before connecting to another server.")
-        return;
-    }
-
-    const ipv4 = document.getElementById("remote-ipv4-field").value.trim();
-
-    if(!validateIPv4(ipv4)) {
-        alert("Enter a valid IPv4 address.");
-        return;
-    } else if(rosbridgeServer != null && rosbridgeServer.isConnected) {
-        alert("You MUST disconnect before connecting to another server.")
-        return;
-    } else {
-        remoteIPv4 = ipv4;
-        connectROS();
-    }
-}
-
-document.getElementById("connect-form").addEventListener("submit", handleConnectForm);
 
 /* ================================================================================================================
  * (Ergonomic) Controls Section

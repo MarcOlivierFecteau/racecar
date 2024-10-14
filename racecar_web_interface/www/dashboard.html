@@ -18,20 +18,15 @@
     <header>
         <nav class="navbar">
             <h2>Racecar</h2>
-            <form id="connect-form">
-                <button type="reset">Clear</button>
-                <input class="connect-field" id="remote-ipv4-field" name="ipv4" type="text" maxlength="15" size="15" placeholder="Server's IPv4" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$">
-                <button type="submit">Connect</button>
-            </form>
             <div class="connection-status-container">
                 <img id="connection-status-icon" src="media/images/red_circle.svg" width="20px" height="auto">
                 <span id="connection-status" style="color: #ff0000;">Disconnected</span>
-                <button id="disconnect-button" type="button" onclick="disconnectROS()" disabled>Disconnect</button>
+                <button id="disconnect-button" type="button" onclick="disconnectROS()">Disconnect</button>
             </div>
         </nav>
     </header>
 
-    <main id="dashboard" style="display: none;">
+    <main id="dashboard">
         <div class="camera-container">
             <h1>Camera</h1>
             <img class="camera-live-feed" id="camera-feed" src="media/images/camera-not-available.svg" width="480" height="480" style="max-width: 100%; height: auto;">
@@ -99,6 +94,10 @@
             <img src="media/images/github-icon.svg" alt="Our Project" width="32px" height="32px">
         </a>
     </footer>
+
     <script type="text/javascript" src="js/main.js"></script>
+    <script type="text/javascript">
+        connectROS();
+    </script>
 </body>
 </html>

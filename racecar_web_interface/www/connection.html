@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIF250 | Racecar</title>
+</head>
+<body>
+    <style>
+        :root {
+            --odp-bg: #282c34;
+            --odp-blue: #5ca3de;
+            --odp-red: #cf666f;
+            --odp-green: #95bf77;
+            --form-in-br: 3px;
+        }
+
+        html, body {
+            height: 100vh;
+            font-family: Helvetica;
+            font-size: 100%;
+            background-color: #181818;
+            color: #ccc;
+        }
+
+        body {
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--odp-red);
+        }
+
+        #connect-form {
+            display: flex;
+            flex-direction: column;
+            max-width: fit-content;
+            background-color: var(--odp-bg);
+            padding: 10px;
+            border: 3px solid black;
+            border-radius: 6px;
+        }
+
+        label {
+            color: var(--odp-red);
+            font-weight: bold;
+            text-decoration-line: underline;
+        }
+
+        input {
+            background-color: #ccc;
+            margin-top: 0.25em;
+            margin-bottom: 0.5em;
+            border: 1px solid black;
+            border-radius: var(--form-in-br);
+        }
+
+        input:focus {
+            outline: 2px solid var(--odp-blue);
+        }
+
+        .buttons-container {
+            display: flex;
+            justify-content: space-evenly;
+        }
+
+        button {
+            font-weight: 500;
+            background-color: var(--odp-green);
+            border: 2px solid black;
+            border-radius: var(--form-in-br);
+        }
+    </style>
+    <h1>Racecar</h1>
+    <form id="connect-form">
+        <label for="remote-user-field">User </label>
+        <input class="connect-field" id="remote-user-field" type="text" required>
+        <label for="remote-ipv4-field">IPv4 address </label>
+        <input class="connect-field" id="remote-ipv4-field" type="text" maxlength="15" size="15" required>
+        <div class="buttons-container">
+            <button type="reset">Clear</button>
+            <button type="submit">Connect</button>
+        </div>
+    </form>
+
+    <script type="text/javascript">
+        localStorage.clear();
+
+        function handleConnectionForm(event) {
+            event.preventDefault();
+
+            const user = document.getElementById("remote-user-field").value.trim();
+            const ipv4 = document.getElementById("remote-ipv4-field").value.trim();
+            if(!validateIPv4(ipv4)) {
+                alert("Enter a valid IPv4 address.");
+                return;
+            } else {
+                localStorage.setItem("remoteUser", user);
+                localStorage.setItem("remoteIPv4", ipv4);
+
+                window.location.href = "dashboard.html";
+            }
+        }
+
+        function validateIPv4(ipv4) {
+            const ipv4Pattern = new RegExp("^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$");
+            return ipv4Pattern.test(ipv4);
+        }
+
+        document.getElementById("connect-form").addEventListener("submit", handleConnectionForm);
+    </script>
+</body>
+</html>

@@ -27,25 +27,6 @@ body {
   margin: 0;
 }
 
-form {
-  display: flex;
-  background-color: #383838;
-  border: 3px solid #181818;
-  border-radius: 6px;
-  gap: 0.25em;
-}
-
-input {
-  padding: 0px;
-  margin: 0px;
-  border-radius: 6px;
-}
-
-.connect-field {
-  background-color: #94a5b7;
-  text-align: center;
-}
-
 .connection-status-container {
   display: flex;
   justify-content: center;
@@ -74,7 +55,7 @@ main {
   display: flex;
   flex-direction: column;
   columns: 2;
-  gap: 5em;
+  gap: 1em;
   align-items: center;
 }
 
@@ -88,6 +69,7 @@ h6 {
 }
 
 button {
+  font-weight: 500;
   background-color: #689b70;
   border-radius: 6px;
 }
