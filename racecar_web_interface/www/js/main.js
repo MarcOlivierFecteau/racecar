@@ -31,7 +31,7 @@ function connectROS() {
 
         cmdVelocityTopic = new ROSLIB.Topic({
             ros: rosbridgeServer,
-            name: "/racecar/prop_cmd",
+            name: "/prop_cmd",
             messageType: "/geometry_msgs/Twist"
         });
         cmdVelocityTopic.advertise();
@@ -77,7 +77,7 @@ var twist = new ROSLIB.Message({
     linear: {
         x: 0.0,
         y: 0.0,
-        z: 2.0
+        z: 1.0
     },
     angular: {
         x: 0.0,

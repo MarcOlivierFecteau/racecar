@@ -41,19 +41,19 @@ def generate_launch_description():
             remappings=[('/raw_odom', 'prop_sensors')],
         ),
 
-        Node(
-            name='lidar',
-            package='rplidar_ros',
-            executable='rplidar_composition',
-            output='screen',
-            parameters=[{
-                'serial_port': '/dev/ttyUSB0',
-                'serial_baudrate': 115200,
-                'frame_id': 'laser',
-                'inverted': False,
-                'angle_compensate': True,
-            }],
-        ),
+#        Node(
+#            name='lidar',
+#            package='rplidar_ros',
+#            executable='rplidar_composition',
+#            output='screen',
+#            parameters=[{
+#                'serial_port': '/dev/ttyUSB0',
+#                'serial_baudrate': 115200,
+#                'frame_id': 'laser',
+#                'inverted': False,
+#                'angle_compensate': True,
+#            }],
+#        ),
 
         Node(
             package='racecar_web_interface',
