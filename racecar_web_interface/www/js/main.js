@@ -22,6 +22,9 @@ function connectROS() {
         connectionStatus.style.color = "#00ff00";
         connectionStatus.innerHTML = remoteIPv4;
 
+        document.getElementById("dashboard").removeAttribute("style");
+        document.getElementById("connect-form").style.display = "none";
+
         document.getElementById("connection-status-icon").src = "media/images/green_circle.svg";
         document.getElementById("disconnect-button").removeAttribute("disabled");
         
@@ -39,20 +42,30 @@ function connectROS() {
 
     rosbridgeServer.on("error", (error) => {
         console.error("[ROSBridge] Error connecting to WebSocket server: ", error);
+        remoteIPv4 = null;
+
         const connectionStatus = document.getElementById("connection-status");
         connectionStatus.style.color = "#ff0000";
         connectionStatus.innerHTML = "Disconnected";
         document.getElementById("connection-status-icon").src = "media/images/red_circle.svg";
         document.getElementById("disconnect-button").setAttribute("disabled", "yes");
+
+        document.getElementById("dashboard").style.display = "none";
+        document.getElementById("connect-form").removeAttribute("style");
     });
 
     rosbridgeServer.on("close", () => {
         console.log("[ROSBridge] Closed connection to WebSocket server.");
+        remoteIPv4 = null;
+
         const connectionStatus = document.getElementById("connection-status");
         connectionStatus.style.color = "#ff0000";
         connectionStatus.innerHTML = "Disconnected";
         document.getElementById("connection-status-icon").src = "media/images/red_circle.svg";
         document.getElementById("disconnect-button").setAttribute("disabled", "yes");
+
+        document.getElementById("dashboard").style.display = "none";
+        document.getElementById("connect-form").removeAttribute("style");
     });
 }
 
@@ -137,9 +150,8 @@ function handleConnectForm(event) {
         return;
     } else {
         remoteIPv4 = ipv4;
+        connectROS();
     }
-
-    connectROS();
 }
 
 document.getElementById("connect-form").addEventListener("submit", handleConnectForm);
