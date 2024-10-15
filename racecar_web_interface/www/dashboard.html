@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- <link rel="stylesheet" href="css/bootstrap.min.css"> -->
+    <link rel="stylesheet" href="css/bootstrap.min.css">
     <link rel="stylesheet" href="css/dashboard.css">
     <!-- JavaScript, import frameworks -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <!-- <script src="js/jquery-3.3.1.slim.min.js"></script> -->
-    <!-- <script src="js/popper.min.js"></script> -->
-    <!-- <script src="js/bootstrap.min.js"></script> -->
+    <script src="js/jquery-3.3.1.slim.min.js"></script>
+    <script src="js/popper.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
     <!-- <script src="js/virtualjoystick.js"></script> -->
     <script src="js/roslib.min.js"></script>
     <title>GIF250 | Racecar</title>
 </head>
 <body>
     <header>
-        <nav class="navbar">
+        <nav class="navbar navbar-dark bg-dark">
             <h2>Racecar</h2>
             <div class="connection-status-container">
                 <img id="connection-status-icon" src="media/images/red_circle.svg" width="20px" height="auto">
@@ -26,63 +26,69 @@
         </nav>
     </header>
 
-    <main id="dashboard">
-        <div class="camera-container">
-            <h1>Camera</h1>
-            <img class="camera-live-feed" id="camera-feed" src="media/images/camera-not-available.svg" width="480" height="480" style="max-width: 100%; height: auto;">
+    <main class="container-fluid" id="dashboard">
+        <div class="row">
+            <div class="col">
+                <h2>Status</h2>
+                <textarea name="status" id="status-buffer" rows="5" cols="25" readonly></textarea>
+            </div>
+            <div class="col">
+                <h2>Camera</h2>
+                <img class="camera-live-feed" id="camera-feed" src="media/images/camera-not-available.svg" width="480" height="480" style="max-width: 100%; height: auto;">
+            </div>
         </div>
-        <div class="controls-container">
-            <div class="dpad-container">
-                <h2>D-Pad</h2>
-                <div class="dpad-wrapper">
-                    <div class="dpad center" id="emergency-stop">
-                        <svg width="64" height="64" version="1.1" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="32" cy="32" r="24" stroke="#e4e4ef" fill="red" stroke-width="2"/>
-                        </svg>
-                    </div>
-                    <div class="dpad up" id="up">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
-                            <polygon points="50 20, 80 80, 20 80" fill="#101010"/>
-                        </svg>
-                    </div>
-                    <div class="dpad left" id="left">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
-                            <polygon points="20 50, 80 80, 80 20" fill="#101010"/>
-                        </svg>
-                    </div>
-                    <div class="dpad down" id="down">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
-                            <polygon points="20 20, 80 20, 50 80" fill="#101010"/>
-                        </svg>
-                    </div>
-                    <div class="dpad right" id="right">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
-                            <polygon points="20 20, 20 80, 80 50" fill="#101010"/>
-                        </svg>
+        <div class="row">
+            <div class="col">
+                <div class="dpad-container">
+                    <h2>Controls</h2>
+                    <div class="dpad-wrapper">
+                        <div class="dpad center" id="emergency-stop">
+                            <svg width="64" height="64" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="32" cy="32" r="24" stroke="#e4e4ef" fill="red" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <div class="dpad up" id="up">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
+                                <polygon points="50 20, 80 80, 20 80" fill="#101010"/>
+                            </svg>
+                        </div>
+                        <div class="dpad left" id="left">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
+                                <polygon points="20 50, 80 80, 80 20" fill="#101010"/>
+                            </svg>
+                        </div>
+                        <div class="dpad down" id="down">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
+                                <polygon points="20 20, 80 20, 50 80" fill="#101010"/>
+                            </svg>
+                        </div>
+                        <div class="dpad right" id="right">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100">
+                                <polygon points="20 20, 20 80, 80 50" fill="#101010"/>
+                            </svg>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div id="joystick-container"></div>
-            <div id="result"></div>
-            <div class="twist-display-container">
-                <h2 style="text-decoration-line: underline;">Twist</h2>
-                <h4>Linear</h4>
-                <ul class="twist-message">
-                    <li id="twist-linear-x">X: N/A</li>
-                    <li id="twist-linear-y">Y: N/A</li>
-                    <li id="twist-linear-z">Z: N/A</li>
-                </ul>
-                <h4>Angular</h4>
-                <ul class="twist-message">
-                    <li id="twist-angular-x">X: N/A</li>
-                    <li id="twist-angular-y">Y: N/A</li>
-                    <li id="twist-angular-z">Z: N/A</li>
-                </ul>
-            </div>
         </div>
+        <!-- <div class="twist-display-container">
+            <h2 style="text-decoration-line: underline;">Twist</h2>
+            <h4>Linear</h4>
+            <ul class="twist-message">
+                <li id="twist-linear-x">X: N/A</li>
+                <li id="twist-linear-y">Y: N/A</li>
+                <li id="twist-linear-z">Z: N/A</li>
+            </ul>
+            <h4>Angular</h4>
+            <ul class="twist-message">
+                <li id="twist-angular-x">X: N/A</li>
+                <li id="twist-angular-y">Y: N/A</li>
+                <li id="twist-angular-z">Z: N/A</li>
+            </ul>
+        </div> -->
     </main>
 
-    <footer>
+    <footer class="container-fluid">
         <h5 class="section-title">S5-GRO-A24: Équipe 10</h5>
         <ul class="members">
             <li><a href="https://github.com/MarcOlivierFecteau" target="_blank" rel="noreferrer">Marc-Olivier Fecteau</a></li>

@@ -8,16 +8,21 @@ body {
   margin: 0;
 }
 
-body {
+textarea {
+  resize: none;
+  overflow-y: scroll;
+}
+
+/* body {
   display: flex;
   flex-direction: column;
-}
+} */
 
 /*
  * Navbar
  */
 
-.navbar {
+/* .navbar {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -25,7 +30,7 @@ body {
 
 .navbar h2 {
   margin: 0;
-}
+} */
 
 .connection-status-container {
   display: flex;
@@ -38,12 +43,12 @@ body {
   border-radius: 20px 6px 6px 20px;
 }
 
-@media (max-width: 700px) {
+/* @media (max-width: 700px) {
   .navbar {
     flex-direction: column;
     align-items: center;
   }
-}
+} */
 
 /*
  * Dashboard
@@ -64,7 +69,7 @@ h3,
 h4,
 h5,
 h6 {
-  color: #b14f48;
+  color: #e4e4ef;
 }
 
 button {

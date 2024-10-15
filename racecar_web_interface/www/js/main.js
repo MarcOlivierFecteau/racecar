@@ -140,20 +140,27 @@ function stopAll() {
         element.removeAttribute("style");
     }
     if(debug) {console.log("Emergency stop pressed.");}
+    statusBuffer.value = "";
+    statusBuffer.value += "EMERGENCY STOP!\n";
 }
 
 function resetInputs() {
     inputsDisabled = false;
     emergencyStop.removeAttribute("style");
     if(debug) {console.log("Emergency stop released.");}
+    statusBuffer.value = "";
+    statusBuffer.value += "Reset.\n";
 }
 
 /* ========================================================================
  * Keyboard Events
  * ======================================================================== */
 
+const statusBuffer = document.getElementById("status-buffer");
+
 // Disable scrolling with arrow keys and space
 window.addEventListener("keydown", (event) => {
+    statusBuffer.scrollTop = statusBuffer.scrollHeight;
     if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(event.code) > -1) {
         event.preventDefault();
     }
@@ -170,25 +177,29 @@ document.addEventListener("keydown", (event) => {
         case "w":
             twist.linear.x = 2.5;
             dPadUp.style.backgroundColor = "#686c74";
-            if(debug) {console.log("You pressed up.");}
+            if(debug) {console.log("Going forward.\n");}
+            statusBuffer.value += "Going forward.\n";
             break;
         case "ArrowLeft":
         case "a":
             twist.angular.z = MAX_STEERING_INPUT;
             dPadLeft.style.backgroundColor = "#686c74";
-            if(debug) {console.log("You pressed left.");}
+            if(debug) {console.log("Going left.\n");}
+            statusBuffer.value += "Going left.\n";
             break;
         case "ArrowDown":
         case "s":
             twist.linear.x = -2.5;
             dPadDown.style.backgroundColor = "#686c74";
-            if(debug) {console.log("You pressed down.");}
+            if(debug) {console.log("Going backward.\n");}
+            statusBuffer.value += "Going backward.\n";
             break;
         case "ArrowRight":
         case "d":
             twist.angular.z = -MAX_STEERING_INPUT;
             dPadRight.style.backgroundColor = "#686c74";
-            if(debug) {console.log("You pressed right.");}
+            if(debug) {console.log("Going right.\n");}
+            statusBuffer.value += "Going right.\n";
             break;
     }
 });
@@ -203,25 +214,29 @@ document.addEventListener("keyup", (event) => {
         case "w":
             twist.linear.x = 0.0;
             dPadUp.removeAttribute("style");
-            if(debug) {console.log("You released up.");}
+            if(debug) {console.log("Stopped forward.\n");}
+            statusBuffer.value += "Stopped forward.\n";
             break;
         case "ArrowLeft":
         case "a":
             twist.angular.z = 0.0;
             dPadLeft.removeAttribute("style");
-            if(debug) {console.log("You released left.");}
+            if(debug) {console.log("Stopped left.\n");}
+            statusBuffer.value += "Stopped left.\n";
             break;
         case "ArrowDown":
         case "s":
             twist.linear.x = 0.0;
             dPadDown.removeAttribute("style");
-            if(debug) {console.log("You released down.");}
+            if(debug) {console.log("Stopped backward.\n");}
+            statusBuffer.value += "Stopped backward.\n";
             break;
         case "ArrowRight":
         case "d":
             twist.angular.z = 0.0;
             dPadRight.removeAttribute("style");
-            if(debug) {console.log("You released right.");}
+            if(debug) {console.log("Stopped right.\n");}
+            statusBuffer.value += "Stopped right.\n";
             break;
     }
 });
@@ -244,56 +259,68 @@ dPadUp.addEventListener("mousedown", () => {
     if(inputsDisabled) return;
     twist.linear.x = 2.5;
     dPadUp.style.backgroundColor = "#686c74";
+    statusBuffer.value += "Going forward.\n";
 });
 dPadUp.addEventListener("mouseup", () => {
     twist.linear.x = 0.0;
     dPadUp.removeAttribute("style");
+    statusBuffer.value += "Stopped forward.\n";
 });
 dPadUp.addEventListener("mouseleave", () => {
     twist.linear.x = 0.0;
     dPadUp.removeAttribute("style");
+    statusBuffer.value += "Stopped forward.\n";
 });
 
 dPadLeft.addEventListener("mousedown", () => {
     if(inputsDisabled) return;
     twist.angular.z = MAX_STEERING_INPUT;
     dPadLeft.style.backgroundColor = "#686c74";
+    statusBuffer.value += "Going left.\n";
 });
 dPadLeft.addEventListener("mouseup", () => {
     twist.angular.z = 0.0;
     dPadLeft.removeAttribute("style");
+    statusBuffer.value += "Stopped left.\n";
 });
 dPadLeft.addEventListener("mouseleave", () => {
     twist.angular.z = 0.0;
     dPadLeft.removeAttribute("style");
+    statusBuffer.value += "Stopped left.\n";
 });
 
 dPadDown.addEventListener("mousedown", () => {
     if(inputsDisabled) return;
     twist.linear.x = -2.5;
     dPadDown.style.backgroundColor = "#686c74";
+    statusBuffer.value += "Going backward.\n";
 });
 dPadDown.addEventListener("mouseup", () => {
     twist.linear.x = 0.0;
     dPadDown.removeAttribute("style");
+    statusBuffer.value += "Stopped backward.\n";
 });
 dPadDown.addEventListener("mouseleave", () => {
     twist.linear.x = 0.0;
     dPadDown.removeAttribute("style");
+    statusBuffer.value += "Stopped backward.\n";
 });
 
 dPadRight.addEventListener("mousedown", () => {
     if(inputsDisabled) return;
     twist.angular.z = -MAX_STEERING_INPUT;
     dPadRight.style.backgroundColor = "#686c74";
+    statusBuffer.value += "Going right.\n";
 });
 dPadRight.addEventListener("mouseup", () => {
     twist.angular.z = 0.0;
     dPadRight.removeAttribute("style");
+    statusBuffer.value += "Stopped right.\n";
 });
 dPadRight.addEventListener("mouseleave", () => {
     twist.angular.z = 0.0;
     dPadRight.removeAttribute("style");
+    statusBuffer.value += "Stopped right.\n";
 });
 
 /* ========================================================================
@@ -310,35 +337,43 @@ emergencyStop.addEventListener("touchend", () => {
 dPadUp.addEventListener("touchstart", () => {
     twist.linear.x = 2.5;
     dPadUp.style.backgroundColor = "#686c74";
+    statusBuffer.value += "Going forward.\n";
 });
 dPadUp.addEventListener("touchend", () => {
     twist.linear.x = 0;
     dPadUp.removeAttribute("style");
+    statusBuffer.value += "Stopped forward.\n";
 });
 
 dPadLeft.addEventListener("touchstart", () => {
     twist.angular.z = MAX_STEERING_INPUT;
     dPadLeft.style.backgroundColor = "#686c74";
+    statusBuffer.value += "Going left.\n";
 });
 dPadLeft.addEventListener("touchend", () => {
     twist.angular.z = 0;
     dPadLeft.removeAttribute("style");
+    statusBuffer.value += "Stopped left.\n";
 });
 
 dPadDown.addEventListener("touchstart", () => {
     twist.linear.x = -2.5;
     dPadDown.style.backgroundColor = "#686c74";
+    statusBuffer.value += "Going backward.\n";
 });
 dPadDown.addEventListener("touchend", () => {
     twist.linear.x = 0;
     dPadDown.removeAttribute("style");
+    statusBuffer.value += "Stopped backward.\n";
 });
 
 dPadRight.addEventListener("touchstart", () => {
     twist.angular.z = -MAX_STEERING_INPUT;
     dPadRight.style.backgroundColor = "#686c74";
+    statusBuffer.value += "Going right.\n";
 });
 dPadRight.addEventListener("touchend", () => {
     twist.angular.z = 0;
     dPadRight.removeAttribute("style");
+    statusBuffer.value += "Stopped right.\n";
 });
