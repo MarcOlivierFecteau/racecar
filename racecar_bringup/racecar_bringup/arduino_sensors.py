@@ -2,7 +2,8 @@
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32MultiArray
+# from std_msgs.msg import Float32MultiArray
+from racecar_custom_interfaces.msg import Sensors
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu, MagneticField, JointState
 import geometry_msgs.msg
@@ -29,7 +30,7 @@ class ArduinoSensors(Node):
         self._total_distance = 0.0
         self.q = tf_transformations.quaternion_from_euler(0, 0, self._theta)
 
-        self.raw_odom_sub = self.create_subscription(Float32MultiArray, 'raw_odom', self._raw_odom_cb, 1000)
+        self.raw_odom_sub = self.create_subscription(Sensors, 'raw_odom', self._raw_odom_cb, 1000)
 
         self._odom_pub = self.create_publisher(Odometry, 'odom', 5)
         self._odom_tf = tf2_ros.TransformBroadcaster(self)
@@ -42,22 +43,22 @@ class ArduinoSensors(Node):
             self.get_logger().error("Received data from arduino should have a length of 19! current length=%d, make sure you have the latest arduino firmware installed.", len(raw_odom.data))
             return
         
-        elapsed_seconds = raw_odom.data[8]/1000.0
-        totalEncDistance = raw_odom.data[0]
-        speed = raw_odom.data[9]/elapsed_seconds
+        elapsed_seconds = raw_odom.dt_ms/1000.0 if raw_odom.dt_ms > 0 else 1
+        totalEncDistance = raw_odom.pos
+        speed = raw_odom.delta_distance_m/elapsed_seconds
         distance = speed*elapsed_seconds
-        steering_angle = -raw_odom.data[6]
+        steering_angle = -raw_odom.servo_ref
         
         # IMU
-        linear_acceleration_x = raw_odom.data[10]
-        linear_acceleration_y = raw_odom.data[11]
-        linear_acceleration_z = raw_odom.data[12]
-        angular_velocity_x = raw_odom.data[13]
-        angular_velocity_y = raw_odom.data[14]
-        angular_velocity_z = raw_odom.data[15]
-        magnetic_x = raw_odom.data[16]
-        magnetic_y = raw_odom.data[17]
-        magnetic_z = raw_odom.data[18]
+        linear_acceleration_x = raw_odom.accel_x_mss
+        linear_acceleration_y = raw_odom.accel_y_mss
+        linear_acceleration_z = raw_odom.accel_z_mss
+        angular_velocity_x = raw_odom.gyro_x_rads
+        angular_velocity_y = raw_odom.gyro_y_rads
+        angular_velocity_z = raw_odom.gyro_z_rads
+        magnetic_x = raw_odom.mag_x_ut
+        magnetic_y = raw_odom.mag_y_ut
+        magnetic_z = raw_odom.mag_z_ut
 
         if elapsed_seconds <= 0:
             self.get_logger().warn("elapsed_seconds is 0.")

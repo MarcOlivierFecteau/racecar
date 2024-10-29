@@ -3,7 +3,8 @@ import rclpy
 from rclpy.node import Node, Publisher, Subscription, Timer
 import numpy as np
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Float32MultiArray
+# from std_msgs.msg import Float32MultiArray
+from racecar_custom_interfaces.msg import Sensors
 
 class SlashController(Node):
     def __init__(self):
@@ -11,7 +12,7 @@ class SlashController(Node):
 
         # Init subscribers
         self.sub_ref: Subscription = self.create_subscription(Twist, 'ctl_ref', self.read_ref, 1)
-        self.sub_prop: Subscription = self.create_subscription(Float32MultiArray, 'prop_sensors', self.read_arduino, 1)
+        self.sub_prop: Subscription = self.create_subscription(Sensors, 'prop_sensors', self.read_arduino, 1)
         self.sub_laser: Subscription = self.create_subscription(Twist, 'car_position', self.read_laser, 1)
 
         # Init publishers
@@ -154,8 +155,8 @@ class SlashController(Node):
         
     def read_arduino(self, msg):
         """Read feedback from Arduino."""
-        self.velocity = msg.data[1]
-        self.position = msg.data[0]
+        self.velocity = msg.vel
+        self.position = msg.pos
         
     def send_arduino(self):
         # Init encd_info msg

@@ -56,11 +56,16 @@ typedef struct
 } Sensors;
 
 // Protocol Definitions
-static const unsigned char START_BYTE = 0xAA;
-static const unsigned char END_BYTE = 0xFF;
-static const unsigned char ACK_BYTE = 0xAC;
-static const size_t CMD_MSG_PACKET_SIZE = 2 + sizeof(std::int8_t) + sizeof(float) * 2;
-static const std::uint8_t TIMEOUT_MS = (std::uint8_t)50;
+static const std::uint16_t TIMEOUT_MS = (std::uint16_t)1000;
+static const std::uint8_t INIT_BYTE = 0x11;
+static const std::uint8_t INIT_ACK_BYTE = 0x1A;
+static const std::uint8_t INIT_END_BYTE = 0x1E;
+static const std::uint8_t CMD_MSG_START_BYTE = 0xCA;
+static const std::uint8_t CMD_MSG_END_BYTE = 0xCF;
+static const ssize_t CMD_MSG_PACKET_SIZE = 2 + sizeof(std::int8_t) + sizeof(float) * 2;
+static const std::uint8_t ODOMETRY_START_BYTE = 0x0A;
+static const std::uint8_t ODOMETRY_END_BYTE = 0x0F;
+static const ssize_t ODOMETRY_SIZE = sizeof(float) * 15 + sizeof(std::int32_t) * 2 + sizeof(std::uint32_t) + sizeof(std::int8_t);
 
 // Error Codes
 #define SERIAL_OK 0
@@ -68,13 +73,14 @@ static const std::uint8_t TIMEOUT_MS = (std::uint8_t)50;
 #define SERIAL_IO_ERROR -2
 #define SERIAL_TIMEOUT_ERROR -3
 
-static const std::uint32_t BAUD_RATE = (std::uint32_t)460800;
+static const std::uint32_t BAUD_RATE = (std::uint32_t)9600;
 
 //==========================================================================//
 // FUNCTION PROTOTYPES
 //==========================================================================//
 
 int configureSerialPort(int fd);
+void handshake();
 
 //==========================================================================//
 // ROS 2
@@ -87,41 +93,12 @@ class ArduinoCommunicationNode : public rclcpp::Node
 public:
   ArduinoCommunicationNode(int fd) : Node("arduino_communication")
   {
-
     this->fd_ = fd;
-    twist_sub_ = this->create_subscription<geometry_msgs::msg::Twist>("prop_cmd", 10,
-                                                                      std::bind(&ArduinoCommunicationNode::updateCmdMsg, this, _1));
+    twist_sub_ = this->create_subscription<geometry_msgs::msg::Twist>("prop_cmd", 10, std::bind(&ArduinoCommunicationNode::updateCmdMsg, this, _1));
 
     sensors_pub_ = this->create_publisher<racecar_custom_interfaces::msg::Sensors>("prop_sensors", 10);
-    auto sensors_callback = [this]()
-    {
-      // Update values
-      assert(this->receiveSensorsData(&this->sensors_) == SERIAL_OK);
 
-      // Directly publishing private member doesn't compile
-      auto message = racecar_custom_interfaces::msg::Sensors();
-      message.pos = this->sensors_.pos;
-      message.vel = this->sensors_.vel;
-      message.drive_ref = this->sensors_.drive_ref;
-      message.drive_cmd = this->sensors_.drive_cmd;
-      message.drive_pwm = this->sensors_.drive_pwm;
-      message.encoder = this->sensors_.encoder;
-      message.servo_ref = this->sensors_.servo_ref;
-      message.control_mode = this->sensors_.control_mode;
-      message.dt_ms = this->sensors_.dt_ms;
-      message.delta_distance_m = this->sensors_.delta_distance_m;
-      message.accel_x_mss = this->sensors_.accelX_mss;
-      message.accel_y_mss = this->sensors_.accelY_mss;
-      message.accel_z_mss = this->sensors_.accelZ_mss;
-      message.gyro_x_rads = this->sensors_.gyroX_rads;
-      message.gyro_y_rads = this->sensors_.gyroY_rads;
-      message.gyro_z_rads = this->sensors_.gyroZ_rads;
-      message.mag_x_ut = this->sensors_.magX_uT;
-      message.mag_y_ut = this->sensors_.magY_uT;
-      message.mag_z_ut = this->sensors_.magZ_uT;
-      this->sensors_pub_->publish(message);
-    };
-    sensors_timer_ = this->create_wall_timer(100ms, sensors_callback);
+    serial_com_timer_ = this->create_wall_timer(50ms, std::bind(&ArduinoCommunicationNode::serial_com_callback, this));
   }
 
   void updateCmdMsg(const geometry_msgs::msg::Twist::SharedPtr twist)
@@ -129,26 +106,19 @@ public:
     this->cmd_msg_.control_mode = (int8_t)(twist->linear.z);
     this->cmd_msg_.drive_ref = (float)(twist->linear.x);
     this->cmd_msg_.servo_ref = (float)(twist->angular.z);
-    this->sendCmdMsg(&this->cmd_msg_, TIMEOUT_MS);
   }
 
-  std::int8_t sendCmdMsg(const CmdMsg *cmd_msg, std::uint8_t timeout_ms)
+  std::int8_t sendCmdMsg()
   {
     std::uint8_t buffer[CMD_MSG_PACKET_SIZE] = {};
-    int bytes_written, bytes_read = 0;
-    unsigned char ack = 0;
-    fd_set readfds;
-    struct timeval timeout;
+    ssize_t bytes_written = 0;
 
     // Prepare the packet
-    buffer[0] = START_BYTE;
-
-    // Copy the message sequentially
-    memcpy(&buffer[1], &cmd_msg->control_mode, sizeof(std::int8_t));
-    memcpy(&buffer[1 + sizeof(std::int8_t)], &cmd_msg->drive_ref, sizeof(float));
-    memcpy(&buffer[1 + sizeof(std::int8_t) + sizeof(float)], &cmd_msg->servo_ref, sizeof(float));
-
-    buffer[CMD_MSG_PACKET_SIZE - 1] = END_BYTE;
+    buffer[0] = CMD_MSG_START_BYTE;
+    memcpy(&buffer[1], &this->cmd_msg_.control_mode, sizeof(std::int8_t));
+    memcpy(&buffer[1 + sizeof(std::int8_t)], &this->cmd_msg_.drive_ref, sizeof(float));
+    memcpy(&buffer[1 + sizeof(std::int8_t) + sizeof(float)], &this->cmd_msg_.servo_ref, sizeof(float));
+    buffer[CMD_MSG_PACKET_SIZE - 1] = CMD_MSG_END_BYTE;
 
     // Send the packet
     bytes_written = write(this->fd_, buffer, CMD_MSG_PACKET_SIZE);
@@ -157,29 +127,10 @@ public:
       return SERIAL_IO_ERROR;
     }
 
-    // Wait for acknowledgement with timeout
-    FD_ZERO(&readfds);
-    FD_SET(this->fd_, &readfds);
-
-    timeout.tv_sec = 0;
-    timeout.tv_usec = timeout_ms * 1000;
-
-    if (select(this->fd_ + 1, &readfds, NULL, NULL, &timeout) <= 0)
-    {
-      return SERIAL_TIMEOUT_ERROR;
-    }
-
-    // Read acknowldegment
-    bytes_read = read(this->fd_, &ack, 1);
-    if (bytes_read != 1 || ack != ACK_BYTE)
-    {
-      return SERIAL_IO_ERROR;
-    }
-
     return SERIAL_OK;
   }
 
-  int readSerial(void *buffer, size_t length, std::uint8_t timeout_ms)
+  int readSerial(void *buffer, size_t length, std::uint16_t timeout_ms)
   {
     size_t bytes_read = 0;
     unsigned char *buf = (unsigned char *)buffer;
@@ -194,6 +145,7 @@ public:
       {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
         {
+          clock_gettime(CLOCK_MONOTONIC, &current_time);
           std::uint32_t elasped_ms = (current_time.tv_sec - start_time.tv_sec) * 1000;
           if (elasped_ms >= timeout_ms)
           {
@@ -202,17 +154,6 @@ public:
           continue;
         }
         return SERIAL_IO_ERROR;
-      }
-
-      // EOF
-      if (result == 0)
-      {
-        clock_gettime(CLOCK_MONOTONIC, &current_time);
-        std::uint32_t elasped_ms = (current_time.tv_sec - start_time.tv_sec) * 1000;
-        if (elasped_ms >= timeout_ms)
-        {
-          return SERIAL_TIMEOUT_ERROR;
-        }
       }
 
       bytes_read += result;
@@ -232,27 +173,20 @@ public:
     // Wait for start byte
     do
     {
-      if (this->readSerial(&_byte, 1, 10) != 1)
+      if (this->readSerial(&_byte, 1, TIMEOUT_MS) != 1)
       {
         return SERIAL_TIMEOUT_ERROR;
       }
-    } while (_byte != START_BYTE);
+    } while (_byte != ODOMETRY_START_BYTE);
 
     // Read payload
-    if (this->readSerial(&sensors_buf, sizeof(Sensors), TIMEOUT_MS) != sizeof(Sensors))
+    if (this->readSerial(&sensors_buf, ODOMETRY_SIZE, TIMEOUT_MS) != ODOMETRY_SIZE)
     {
-      return SERIAL_SYNC_ERROR;
+      return SERIAL_IO_ERROR;
     }
 
     // Read end byte
-    if (this->readSerial(&_byte, 1, 10) != 1 || _byte != END_BYTE)
-    {
-      return SERIAL_SYNC_ERROR;
-    }
-
-    // Send acknowledgment
-    unsigned char ack = ACK_BYTE;
-    if (write(this->fd_, &ack, 1) != 1)
+    if (this->readSerial(&_byte, 1, 10) != 1 || _byte != ODOMETRY_END_BYTE)
     {
       return SERIAL_IO_ERROR;
     }
@@ -281,13 +215,48 @@ public:
     return SERIAL_OK;
   }
 
+  void serial_com_callback()
+  {
+    // Clear the input and output buffers
+    if (tcflush(this->fd_, TCIOFLUSH) == -1)
+    {
+      std::cerr << "Error clearing serial buffer: " << strerror(errno) << std::endl;
+    }
+
+    assert(this->sendCmdMsg() == SERIAL_OK);
+    assert(this->receiveSensorsData(&this->sensors_) == SERIAL_OK);
+
+    // Directly publishing private member doesn't compile
+    auto message = racecar_custom_interfaces::msg::Sensors();
+    message.pos = this->sensors_.pos;
+    message.vel = this->sensors_.vel;
+    message.drive_ref = this->sensors_.drive_ref;
+    message.drive_cmd = this->sensors_.drive_cmd;
+    message.drive_pwm = this->sensors_.drive_pwm;
+    message.encoder = this->sensors_.encoder;
+    message.servo_ref = this->sensors_.servo_ref;
+    message.control_mode = this->sensors_.control_mode;
+    message.dt_ms = this->sensors_.dt_ms;
+    message.delta_distance_m = this->sensors_.delta_distance_m;
+    message.accel_x_mss = this->sensors_.accelX_mss;
+    message.accel_y_mss = this->sensors_.accelY_mss;
+    message.accel_z_mss = this->sensors_.accelZ_mss;
+    message.gyro_x_rads = this->sensors_.gyroX_rads;
+    message.gyro_y_rads = this->sensors_.gyroY_rads;
+    message.gyro_z_rads = this->sensors_.gyroZ_rads;
+    message.mag_x_ut = this->sensors_.magX_uT;
+    message.mag_y_ut = this->sensors_.magY_uT;
+    message.mag_z_ut = this->sensors_.magZ_uT;
+    this->sensors_pub_->publish(message);
+  }
+
 private:
   int fd_ = 0;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_sub_;
   CmdMsg cmd_msg_ = {.control_mode = (int8_t)0, .drive_ref = 0.0f, .servo_ref = 0.0f};
-  rclcpp::TimerBase::SharedPtr cmd_msg_timer_; // TODO: timer-based call of sendCmdMsg (instead of event-based)
+  rclcpp::TimerBase::SharedPtr serial_com_timer_;
   rclcpp::Publisher<racecar_custom_interfaces::msg::Sensors>::SharedPtr sensors_pub_;
-  Sensors sensors_ = 
+  Sensors sensors_ =
   {
     .pos = 0.0f,
     .vel = 0.0f,
@@ -309,7 +278,6 @@ private:
     .magY_uT = 0.0f,
     .magZ_uT = 0.0f
   };
-  rclcpp::TimerBase::SharedPtr sensors_timer_;
 };
 
 //==========================================================================//

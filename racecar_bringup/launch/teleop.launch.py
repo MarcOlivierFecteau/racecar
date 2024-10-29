@@ -1,6 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import TimerAction, ExecuteProcess
+from launch.actions import TimerAction
 from datetime import datetime
 
 bag_name = f"app2_{datetime.now().strftime("%Y_%m_%d_%H%M_%S")}"

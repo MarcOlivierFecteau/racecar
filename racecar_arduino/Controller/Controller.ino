@@ -24,7 +24,7 @@ static const float POS_KD = 0.0f;
 static const float POS_ERROR_INTEGRAL_SAT = 100.0f;
 
 static const uint32_t LOW_LEVEL_CYCLE_MS = (uint32_t)2;    // Internal PID loop cycle (ms)
-static const uint32_t SERIAL_COM_CYCLE_MS = (uint32_t)20;  // ROS 2 communication cycle (ms)
+static const uint32_t SERIAL_COM_CYCLE_MS = (uint32_t)50;  // ROS 2 communication cycle (ms)
 static const uint32_t MAX_COM_DELAY_MS = (uint32_t)1000;   // Maximum communication delay (i.e. watchdog) (ms)
 
 static const uint32_t DRIVE_WAKEUP_TIME_US = (uint32_t)20;  // µs
@@ -43,13 +43,18 @@ static const uint8_t DRIVE_DIR_PIN = (uint8_t)42;
 #define SERIAL_SYNC_ERROR -1
 #define SERIAL_IO_ERROR -2
 #define SERIAL_TIMEOUT_ERROR -3
-static const uint16_t TIMEOUT_MS = (uint8_t)1000;
-static const uint8_t START_BYTE = 0xAA;
-static const uint8_t END_BYTE = 0xFF;
-static const uint8_t ACK_BYTE = 0xAC;
-static const size_t PAYLOAD_SIZE = (size_t)24;  // 6 * 8 bytes payload
+static const uint16_t TIMEOUT_MS = (uint16_t)1000;
+static const uint8_t INIT_BYTE = 0x11;
+static const uint8_t INIT_ACK_BYTE = 0x1A;
+static const uint8_t INIT_END_BYTE = 0x1E;
+static const uint8_t CMD_MSG_START_BYTE = 0xCA;
+static const uint8_t CMD_MSG_END_BYTE = 0xCF;
+static const size_t CMD_MSG_PACKET_SIZE = sizeof(int8_t) + sizeof(float) * 2;
+static const uint8_t ODOMETRY_START_BYTE = 0x0A;
+static const uint8_t ODOMETRY_END_BYTE = 0x0F;
+static const size_t ODOMETRY_SIZE = sizeof(float) * 15 + sizeof(int32_t) * 2 + sizeof(uint32_t) + sizeof(int8_t);
 
-static const uint32_t BAUD_RATE = (uint32_t)460800;
+static const uint32_t BAUD_RATE = (uint32_t)9600;
 
 static const int32_t PWM_MIN_SERVO = (int32_t)30;
 static const int32_t PWM_ZERO_SERVO = (int32_t)90;
@@ -66,20 +71,16 @@ static const float VOLT2PWM = (float)(PWM_ZERO_DRIVE - PWM_MIN_DRIVE) / MAX_BATT
 static const float TICK2METER = 0.000002752f;  // TODO: Ajuster la valeur en fonction des mesures
 
 // I/O Data Structures
-typedef struct {
-  float x;
-  float y;
-  float z;
-} Vector3;
 
 typedef struct {
-  Vector3 linear;
-  Vector3 angular;
-} Twist;
+  int8_t control_mode;
+  float drive_ref;
+  float servo_ref;
+} CmdMsg;
 
 typedef struct {
-  float wheel_pos;
-  float wheel_vel;
+  float pos;
+  float vel;
   float drive_ref;
   float drive_cmd;
   int32_t drive_pwm;
@@ -109,14 +110,15 @@ MPU9250 imu(Wire, 0x68);
 
 Servo steeringServo;
 
-Twist cmd_msg = {
-  .linear = { 0.0, 0.0, -1.0 },
-  .angular = { 0.0, 0.0, 0.0 }
+CmdMsg cmd_msg_ = {
+  .control_mode = (int8_t)0,
+  .drive_ref = 0.0f,
+  .servo_ref = 0.0f;
 };
 
-Sensors payload = {
-  .wheel_pos = 0.0f,
-  .wheel_vel = 0.0f,
+Sensors payload_ = {
+  .pos = 0.0f,
+  .vel = 0.0f,
   .drive_ref = 0.0f,
   .drive_cmd = 0.0f,
   .drive_pwm = PWM_ZERO_DRIVE,
@@ -165,19 +167,22 @@ float vel_filtered, vel_error_integral = 0.0f;
 void encoder_init();
 int32_t encoder_read();
 void encoder_clear_count();
-int8_t cmd_callback(const Twist* twist);
-int8_t sensors_callback(uint32_t dt, const Sensors* sensors);
+int8_t cmd_callback(CmdMsg* cmd_msg);
+void sensors_callback(uint32_t dt, Sensors* sensors);
 int32_t servo_pwm_from_cmd(float cmd);
 int32_t drive_pwm_from_cmd(float cmd);
 void set_drive_pwm(int32_t pwm);
 void reset_integral_actions();
 void controller(uint32_t dt_ms);
+int8_t handshake();
 
 //==========================================================================//
 // ENTRY POINTS (MAIN)
 //==========================================================================//
 
 void setup() {
+  uint32_t start_time = millis();
+
   Serial.begin(BAUD_RATE);
   delay(10);
 
@@ -199,9 +204,11 @@ void setup() {
   assert(imu.setSrd(9) == 1);  //100 Hz update rate
 #endif
 
-  delay(3000);
+  while (millis() - start_time < 3000) { ;; }
   steeringServo.write(PWM_ZERO_SERVO);
-  assert(sensors_callback(1, &payload) == SERIAL_OK);
+
+  handshake();
+  sensors_callback(1, &payload_);
 }
 
 void loop() {
@@ -222,8 +229,8 @@ void loop() {
   }
 
   if (dt > SERIAL_COM_CYCLE_MS) {
-    assert(cmd_callback(&cmd_msg) == SERIAL_OK);
-    assert(sensors_callback(millis() - time_last_high, &payload) == SERIAL_OK);
+    assert(cmd_callback(&cmd_msg_) == SERIAL_OK);
+    sensors_callback(millis() - time_last_high, &payload_);
 
     encoder_last = encoder;
     time_last_high = start_time;
@@ -294,24 +301,28 @@ void encoder_clear_count() {
   digitalWrite(SLAVE_SELECT_ENCODER_PIN, HIGH);  // Terminate SPI communication
 }
 
-int8_t cmd_callback(Twist* twist) {
+int8_t cmd_callback(CmdMsg* cmd_msg) {
   uint32_t start_time = millis();
 
-  // Read start byte
+  // Await content on serial bus
   while (Serial.available() < 1) {
     if (millis() - start_time > TIMEOUT_MS) {
       return SERIAL_TIMEOUT_ERROR;
     }
   }
-  if (Serial.read() != START_BYTE) {
-    return SERIAL_IO_ERROR;
+
+  // Read until start byte (discard incomplete and odometry payloads)
+  while (Serial.read() != CMD_MSG_START_BYTE) {
+    if (millis() - start_time > TIMEOUT_MS) {
+      return SERIAL_TIMEOUT_ERROR;
+    }
   }
 
   // Read the payload
-  uint8_t buffer[PAYLOAD_SIZE];
+  uint8_t buffer[CMD_MSG_PACKET_SIZE];
   size_t bytes_read = 0;
 
-  while (bytes_read < PAYLOAD_SIZE) {
+  while (bytes_read < CMD_MSG_PACKET_SIZE) {
     if (Serial.available()) {
       buffer[bytes_read] = Serial.read();
       ++bytes_read;
@@ -327,34 +338,33 @@ int8_t cmd_callback(Twist* twist) {
     if (millis() - start_time > TIMEOUT_MS) {
       return SERIAL_TIMEOUT_ERROR;
     }
-    if (Serial.read() != END_BYTE) {
+    if (Serial.read() != CMD_MSG_END_BYTE) {
       return SERIAL_IO_ERROR;
     }
   }
 
   // Parse the message
-  memcpy(&twist->linear.x, &buffer[0], sizeof(twist->linear.x));
-  memcpy(&twist->linear.y, &buffer[4], sizeof(twist->linear.y));
-  memcpy(&twist->linear.z, &buffer[8], sizeof(twist->linear.z));
-  memcpy(&twist->angular.x, &buffer[12], sizeof(twist->angular.x));
-  memcpy(&twist->angular.y, &buffer[16], sizeof(twist->angular.y));
-  memcpy(&twist->angular.z, &buffer[20], sizeof(twist->angular.z));
+  memcpy(&cmd_msg->control_mode, &buffer[0], sizeof(int8_t));
+  memcpy(&cmd_msg->drive_ref, &buffer[1], sizeof(float));
+  memcpy(&cmd_msg->servo_ref, &buffer[5], sizeof(float));
 
-  Serial.write(ACK_BYTE);
+  // Send the acknowledgment
+  // Serial.write(ACK_BYTE);
+
   time_last_com = millis();
 
   // Update controller variables
-  drive_ref = twist->linear.x;
-  servo_ref = twist->angular.z;
-  control_mode = (int8_t)twist->linear.z;
+  drive_ref = cmd_msg->drive_ref;
+  servo_ref = cmd_msg->servo_ref;
+  control_mode = cmd_msg->control_mode;
 
   return SERIAL_OK;
 }
 
-int8_t sensors_callback(uint32_t dt_ms, Sensors* sensors) {
+void sensors_callback(uint32_t dt_ms, Sensors* sensors) {
   // Update I/O payload
-  sensors->wheel_pos = pos;
-  sensors->wheel_vel = vel_filtered;
+  sensors->pos = pos;
+  sensors->vel = vel_filtered;
   sensors->drive_ref = drive_ref;
   sensors->drive_cmd = drive_cmd;
   sensors->drive_pwm = drive_pwm;
@@ -379,7 +389,7 @@ int8_t sensors_callback(uint32_t dt_ms, Sensors* sensors) {
 
   const size_t data_size = sizeof(Sensors);
 
-  Serial.write(START_BYTE);
+  Serial.write(ODOMETRY_START_BYTE);
 
   // Send the payload
   const uint8_t* byte_ptr = (const uint8_t*)sensors;
@@ -387,26 +397,26 @@ int8_t sensors_callback(uint32_t dt_ms, Sensors* sensors) {
     Serial.write(byte_ptr[i]);
   }
 
-  Serial.write(END_BYTE);
+  Serial.write(ODOMETRY_END_BYTE);
 
   // Ensure all data is transmitted
   Serial.flush();
 
   // Wait for acknowledgment with timeout
-  uint32_t ack_start_time = millis();
-  while (Serial.available() < 1) {
-    if (millis() - ack_start_time > TIMEOUT_MS) {
-      return SERIAL_TIMEOUT_ERROR;
-    }
-  }
+  // uint32_t ack_start_time = millis();
+  // while (Serial.available() < 1) {
+  //   if (millis() - ack_start_time > TIMEOUT_MS) {
+  //     return SERIAL_TIMEOUT_ERROR;
+  //   }
+  // }
 
-  if (Serial.read() != ACK_BYTE) {
-    return SERIAL_IO_ERROR;
-  }
+  // if (Serial.read() != ACK_BYTE) {
+  //   return SERIAL_IO_ERROR;
+  // }
 
   time_last_com = millis();
 
-  return SERIAL_OK;
+  // return SERIAL_OK;
 }
 
 #define clamp(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
@@ -482,13 +492,14 @@ void controller(uint32_t dt_ms) {
    * === Low-Level Control Modes ===
    * | Value |     Description      | Units |
    * |-------|----------------------|-------|
+   * |  -1   | Full Stop (Lost COM) | NULL  |
    * |   0   | Full Stop (Disabled) | NULL  |
    * |   1   | Full Open-Loop       | V     |
    * |   2   | Closed-Loop Velocity | m/s   |
    * |   3   | Closed-Loop Position | m     |
    * |   4   | Reset Encoder        | NULL  |
    */
-  if (control_mode == 0) {
+  if (control_mode == 0 || control_mode == -1) {
     drive_pwm = PWM_ZERO_DRIVE;
 
     reset_integral_actions();
@@ -532,4 +543,45 @@ void controller(uint32_t dt_ms) {
   // Update memory variables
   encoder_last = encoder;
   vel_last = vel_filtered;
+}
+
+// Serial handshake between Raspberry Pi and Arduino before entering main loop
+int8_t handshake() {
+  uint32_t start_time = millis();
+  uint8_t count_ = 0;
+
+  while (Serial.available() < 1) {
+    uint32_t elapsed_ms = millis() - start_time;
+    if (elapsed_ms > 250) {
+      // Do a "dance" with the steering while waiting
+      if (count_ == 0) { steeringServo.write(PWM_ZERO_SERVO); }
+      else if (count_ == 1) { steeringServo.write(PWM_MIN_SERVO); }
+      else if (count_ == 2) { steeringServo.write(PWM_ZERO_SERVO); }
+      else if (count_ == 3) {
+        steeringServo.write(PWM_MAX_SERVO);
+        count_ = 0;
+      }
+      ++count_;
+      start_time = millis();
+    }
+  }
+
+  // Stop the dance
+  steeringServo.write(PWM_ZERO_SERVO);
+
+  if (Serial.read() != INIT_BYTE) {
+    return SERIAL_SYNC_ERROR;
+  }
+
+  Serial.write(INIT_ACK_BYTE);
+
+  while (Serial.available() < 1) {
+    if (millis() - start_time > TIMEOUT_MS) {
+      return SERIAL_TIMEOUT_ERROR;
+    }
+  }
+
+  if (Serial.read != INIT_END_BYTE) {
+    return SERIAL_IO_ERROR;
+  }
 }
