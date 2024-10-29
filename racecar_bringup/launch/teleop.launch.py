@@ -7,29 +7,16 @@ bag_name = f"app2_{datetime.now().strftime("%Y_%m_%d_%H%M_%S")}"
 
 def generate_launch_description():
     return LaunchDescription([
-        
+
         TimerAction(
             period=5.0,
             actions=[
                 Node(
-                    package='pb2ros2',
-                    executable='arduino_agent',
+                    package='racecar_serial_cpp',
+                    executable='arduino_communication',
                     name='arduino',
                     output='screen',
                 ),
-                ExecuteProcess(
-                    cmd = [
-                        "ros2", 
-                        "bag", 
-                        "record", 
-                        "--output", 
-                        f"/home/racecar/ros2_ws/bag_files/{bag_name}", 
-                        "--storage", 
-                        "sqlite3", 
-                        "--topics", 
-                        ["/prop_sensors"]
-                    ],
-                )
             ],
         ),
 

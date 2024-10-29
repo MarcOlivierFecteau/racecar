@@ -1,0 +1,3 @@
+int8 control_mode
+float32 drive_ref
+float32 servo_ref

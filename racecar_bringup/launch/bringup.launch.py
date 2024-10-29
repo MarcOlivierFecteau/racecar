@@ -24,8 +24,8 @@ def generate_launch_description():
             period=5.0,
             actions=[
                 Node(
-                    package='pb2ros2',
-                    executable='arduino_agent',
+                    package='racecar_serial_cpp',
+                    executable='arduino_communication',
                     name='arduino',
                     output='screen',
                 ),
