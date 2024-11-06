@@ -38,6 +38,7 @@ const float POSITION_KP = 7.0f;
 const float POSITION_KI = 0.0f;
 const float POSITION_KD = 1.3f;
 const float POSITION_ERROR_INTEGRAL_SATURATION = 100.0f;
+const float K13 = 9.1333;
 
 const unsigned int TIME_PERIOD_LOW = 5u;   // Internal PID loop cycle time (ms)
 const unsigned int TIME_PERIOD_HIGH = 20u; // ROS communication cycle time (ms) --- WARNING: heavy on CPU load
@@ -356,10 +357,11 @@ void controller(int dt_low) {
     velocity_error_integral += velocity_error;
     velocity_error_differential = velocity_error - velocity_error_last;
 
-    drive_cmd =
-        VELOCITY_KP * velocity_error +
-        VELOCITY_KI * velocity_error_integral * (float)(TIME_PERIOD_LOW / 1000u) +
-        VELOCITY_KD * velocity_error_differential / (float)(TIME_PERIOD_LOW) * 1000.0f;
+    // drive_cmd =
+    //     VELOCITY_KP * velocity_error +
+    //     VELOCITY_KI * velocity_error_integral * (float)(TIME_PERIOD_LOW / 1000u) +
+    //     VELOCITY_KD * velocity_error_differential / (float)(TIME_PERIOD_LOW) * 1000.0f;
+    drive_cmd = K13 * velocity_error;
 
     drive_pwm = cmd2pwm(drive_cmd);
     velocity_error_last = velocity_error;
