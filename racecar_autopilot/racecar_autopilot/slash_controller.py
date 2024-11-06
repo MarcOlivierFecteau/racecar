@@ -101,7 +101,7 @@ class SlashController(Node):
                 u = self.controller1(x, r)
 
                 self.steering_cmd = u[1] + self.steering_offset
-                self.propulsion_cmd = u[0]
+                self.propulsion_cmd = 0.0
                 self.arduino_mode = 2
 
             elif self.high_level_mode == 4:  # Closed-loop position and steering
