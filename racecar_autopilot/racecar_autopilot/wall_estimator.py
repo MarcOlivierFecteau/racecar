@@ -44,7 +44,7 @@ class WallEstimator(Node):
         theta_data  = []
         n_good_scan = 0
         
-        for i in range(70,110):
+        for i in range(140,220):
             
             scan_is_good = (( ranges[i] > scan_msg.range_min) &
                             ( ranges[i] < scan_msg.range_max) )
@@ -83,7 +83,7 @@ class WallEstimator(Node):
         theta_data  = []
         n_good_scan = 0
         
-        for i in range(250,290):
+        for i in range(500,580):
             
             scan_is_good = (( ranges[i] > scan_msg.range_min) &
                             ( ranges[i] < scan_msg.range_max) )

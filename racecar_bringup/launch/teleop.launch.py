@@ -17,19 +17,19 @@ def generate_launch_description():
                     name='arduino',
                     output='screen',
                 ),
-                ExecuteProcess(
-                    cmd = [
-                        "ros2", 
-                        "bag", 
-                        "record", 
-                        "--output", 
-                        f"/home/racecar/ros2_ws/bag_files/{bag_name}", 
-                        "--storage", 
-                        "sqlite3", 
-                        "--topics", 
-                        ["/prop_sensors"]
-                    ],
-                )
+                # ExecuteProcess(
+                #     cmd = [
+                #         "ros2", 
+                #         "bag", 
+                #         "record", 
+                #         "--output", 
+                #         f"/home/racecar/ros2_ws/bag_files/{bag_name}", 
+                #         "--storage", 
+                #         "sqlite3", 
+                #         "--topics", 
+                #         ["/prop_sensors"]
+                #     ],
+                # )
             ],
         ),
 

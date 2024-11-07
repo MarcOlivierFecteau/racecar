@@ -19,7 +19,6 @@ def generate_launch_description():
         ),
 
         Node(
-            name='lidar',
             package='rplidar_ros',
             executable='rplidar_composition',
             output='screen',
@@ -29,6 +28,7 @@ def generate_launch_description():
                 'frame_id': 'laser',
                 'inverted': False,
                 'angle_compensate': True,
+                'auto_standby': False
             }],
         ),
 

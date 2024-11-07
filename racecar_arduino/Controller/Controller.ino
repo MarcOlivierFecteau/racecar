@@ -5,7 +5,7 @@
 #include "floatarray.pb.h"
 #include "PBUtils.h"
 #define USB_USBCON
-// #define DEBUG // Toggle comment for enabling/disabling debug features
+#define DEBUG // Toggle comment for enabling/disabling debug features
 #define IMU // Toggle comment for enabling/disabling IMU (GRO830)
 
 #ifdef IMU
@@ -189,8 +189,8 @@ void loop() {
     controller(time_now - time_last_low);
     time_last_low = time_now;
 #ifdef DEBUG
-    time_debug = time_micros - time_micros_last;
-    time_micros_last = time_micros;
+//    time_debug = time_micros - time_micros_last;
+//    time_micros_last = time_micros;
 #endif
   }
 
@@ -384,12 +384,12 @@ void controller(int dt_low) {
     position_dt = (float)(position_time_now - position_time_old) / 1000.0f;
     position_time_old = position_time_now;
 
-    drive_cmd =
+    /*drive_cmd =
         POSITION_KP * position_error +
         POSITION_KI * position_error_integral * position_dt +
-        POSITION_KD * position_error_differential / position_dt;
+        POSITION_KD * position_error_differential / position_dt;*/
 
-    drive_pwm = cmd2pwm(drive_cmd);
+    drive_pwm = cmd2pwm(drive_ref);
     position_error_last = position_error;
   } else if(ctl_mode == 4) {
     // Reset encoder counts

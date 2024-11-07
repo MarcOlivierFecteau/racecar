@@ -33,9 +33,9 @@ class SlashController(Node):
         # Controller
         self.steering_offset = 0.0  # To adjust according to the vehicle
 
-        self.K_autopilot = [[0.0072, 0.0062, 9.133], [0.3162, 0.5374, 0.0197]]  # TODO: DESIGN LQR (APP4)
+        self.K_autopilot = np.array([[0.0072, 0.0062, 9.133], [0.3162, 0.5374, 0.0197]])  # TODO: DESIGN LQR (APP4)
 
-        self.K_parking = [[1, 1, 1, 1], [1, 1, 1, 1]]  # TODO: DESIGN PLACEMENT DE POLES (APP4)
+        self.K_parking = np.array([[0, 0, 1], [0.09375, 0.3, 0]])  # TODO: DESIGN PLACEMENT DE POLES (APP4)
 
         # Memory
 
@@ -95,13 +95,13 @@ class SlashController(Node):
 
                 # Auto-pilot # 1
 
-                x = [self.laser_y, self.laser_theta, self.velocity]
-                r = [0.0, 0.0, 1.5]
+                x = np.array([-self.laser_y, self.laser_theta, self.velocity])
+                r = np.array([0.0, 0.0, 1.5])
 
                 u = self.controller1(x, r)
 
-                self.steering_cmd = u[1] + self.steering_offset
-                self.propulsion_cmd = 0.0
+                self.steering_cmd = -1*(u[1] + self.steering_offset)
+                self.propulsion_cmd = r[2]
                 self.arduino_mode = 2
 
             elif self.high_level_mode == 4:  # Closed-loop position and steering
@@ -109,14 +109,14 @@ class SlashController(Node):
 
                 # Auto-pilot # 1
 
-                x = [self.position, self.laser_y, self.laser_theta]
-                r = [0.0, 0.0, 1.5]
+                x = np.array([-self.laser_y, self.laser_theta, self.position])
+                r = np.array([0.0, 0.0, 5.0])
 
                 u = self.controller2(x, r)
 
-                self.steering_cmd = u[1] + self.steering_offset
+                self.steering_cmd = -1*(u[1] + self.steering_offset)
                 self.propulsion_cmd = u[0]
-                self.arduino_mode = 0  # Mode ??? on arduino
+                self.arduino_mode = 2  # Mode ??? on arduino
 
             elif self.high_level_mode == 6:  # Reset encoders
                 self.propulsion_cmd = 0

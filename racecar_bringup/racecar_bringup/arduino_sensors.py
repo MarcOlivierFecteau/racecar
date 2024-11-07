@@ -39,7 +39,7 @@ class ArduinoSensors(Node):
 
     def _raw_odom_cb(self, raw_odom):
         if len(raw_odom.data) != 19:
-            self.get_logger().error("Received data from arduino should have a length of 19! current length=%d, make sure you have the latest arduino firmware installed.", len(raw_odom.data))
+            self.get_logger().error(f"Received data from arduino should have a length of 19! current length={len(raw_odom.data)}, make sure you have the latest arduino firmware installed.")
             return
         
         elapsed_seconds = raw_odom.data[8]/1000.0
